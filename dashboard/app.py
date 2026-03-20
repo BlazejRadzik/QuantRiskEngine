@@ -1,11 +1,19 @@
-from core.models import get_optimal_weights, simulate_monte_carlo
-from core.risk_metrics import calculate_portfolio_metrics
-from scipy.stats import skew, kurtosis
-import sys
 import os
-# Poprawka ścieżek dla Streamlit Cloud
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import sys
+import streamlit as st
 
+# PANCERNA POPRAWKA ŚCIEŻKI:
+# Pobieramy ścieżkę do folderu głównego (tam gdzie jest core i dashboard)
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if root_path not in sys.path:
+    sys.path.insert(0, root_path)
+
+# Dopiero TERAZ importujemy Twoje moduły
+try:
+    from core.models import get_optimal_weights, simulate_monte_carlo
+    from core.risk_metrics import calculate_portfolio_metrics
+except ModuleNotFoundError:
+    st.error(f"Nie znaleziono modułów w: {root_path}. Sprawdź strukturę plików na GitHub.")
 import streamlit as st
 import requests
 import pandas as pd

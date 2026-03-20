@@ -9,3 +9,10 @@ streamlit>=1.30.0
 altair<5
 requests
 plotly
+streamlit
+pandas
+numpy
+yfinance
+plotly
+scipy
+requests
