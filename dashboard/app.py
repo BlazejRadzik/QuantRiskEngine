@@ -12,10 +12,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 import yfinance as yf  # <--- BIBLIOTEKA DO POBIERANIA DANYCH DO CSV
+
 @st.cache_data(ttl=3600)
 def load_data(tickers):
     data = yf.download(tickers, period="1y", progress=False)
     return data
+
 # --- KONFIGURACJA STRONY ---
 st.set_page_config(page_title="Kalkulator Ryzyka Inwestycyjnego", layout="wide", initial_sidebar_state="expanded")
 
@@ -459,6 +461,10 @@ elif page == "Doradca Portfelowy":
         size=days,
         replace=True
     )
+    
+    # Naprawiona logika dla price_path
+    price_path = np.exp(np.cumsum(simulated_returns))
+    
     cum_max = np.maximum.accumulate(price_path)
     drawdown = (price_path - cum_max) / cum_max
     max_drawdown = drawdown.min()
@@ -469,6 +475,7 @@ elif page == "Doradca Portfelowy":
     fig_line.update_layout(xaxis_title="Dni z rzędu", yaxis_title="Wartość portfela", 
                            height=350, margin=dict(t=20))
     st.plotly_chart(fig_line, use_container_width=True)
+    
     col_m1, col_m2, col_m3 = st.columns(3)
 
     col_m1.metric("Max Drawdown", f"{round(max_drawdown*100, 2)}%")
@@ -509,8 +516,10 @@ elif page == "Doradca Portfelowy":
         height=300
     )
 
-st.plotly_chart(fig_vol, use_container_width=True)
+    st.plotly_chart(fig_vol, use_container_width=True)
 
+
+# <--- TU BYŁ BŁĄD Z WCIĘCIAMI (INDENTATION) --->
 # ==========================================
 # ZAKŁADKA 4: POBIERANIE PLIKÓW 
 # ==========================================
@@ -572,4 +581,5 @@ elif page == "Pobierz pliki":
         label="📥 Pobierz raport bezpieczeństwa (JSON)",
         file_name="risk_report.json",
         mime="application/json",
-        data=json_string)
+        data=json_string
+    )
