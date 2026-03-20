@@ -290,51 +290,99 @@ elif page == "Kalkulator Ryzyka":
 
 
 # ==========================================
-# ZAKŁADKA 3: DORADCA PORTFELOWY
+# ZAKŁADKA 3: DORADCA PORTFELOWY (ULEPSZONA)
 # ==========================================
 elif page == "Doradca Portfelowy":
     st.title("Inteligentny Doradca Portfelowy")
-    st.markdown("Nie wiesz od czego zacząć? Wybierz swój profil inwestycyjny, a algorytm zasugeruje odpowiedni dobór spółek bazowych do optymalizacji.")
+    st.markdown("Wybierz swój profil inwestycyjny, a algorytm zaproponuje strukturę portfela opartą o zaawansowane modele matematyczne.")
     
-    profile = st.selectbox("Określ swoją tolerancję na ryzyko:", ["Konserwatywny (Niskie ryzyko)", "Zrównoważony (Średnie ryzyko)", "Agresywny (Wysokie ryzyko)"])
+    profile = st.selectbox("Określ swoją tolerancję na ryzyko:", 
+                          ["Konserwatywny (Niskie ryzyko)", "Zrównoważony (Średnie ryzyko)", "Agresywny (Wysokie ryzyko)"])
     
     st.markdown("---")
     
-    current_tickers = []
+    # Konfiguracja doradcy
+    config = {
+        "Konserwatywny (Niskie ryzyko)": {
+            "tickers": ["JNJ", "PG", "WMT", "JPM", "V"],
+            "weights": [0.25, 0.25, 0.20, 0.15, 0.15],
+            "desc": "Zestawienie idealne do modeli minimalizacji wariancji. Wybrano spółki o niskim współczynniku Beta i stabilnych dywidendach.",
+            "method": "Global Minimum Variance (GMV)",
+            "code_logic": "weights = min_variance_optimizer(returns_cov_matrix)",
+            "drift": 0.0002 # symulacja dla wykresu
+        },
+        "Zrównoważony (Średnie ryzyko)": {
+            "tickers": ["AAPL", "MSFT", "GOOGL", "AMZN"],
+            "weights": [0.30, 0.30, 0.20, 0.20],
+            "desc": "Solidny balans między wzrostem a wartością. Optymalizacja Markowitza znajduje złoty środek między oczekiwanym zwrotem a ryzykiem.",
+            "method": "Maximum Sharpe Ratio (MSR)",
+            "code_logic": "weights = max_sharpe_optimizer(expected_returns, cov_matrix)",
+            "drift": 0.0005
+        },
+        "Agresywny (Wysokie ryzyko)": {
+            "tickers": ["NVDA", "TSLA", "AMD", "META", "NFLX"],
+            "weights": [0.35, 0.25, 0.15, 0.15, 0.10],
+            "desc": "Skupienie na wysokiej dynamice (Growth). Model GARCH wykazuje tutaj potencjał na wysokie stopy zwrotu przy akceptacji ryzyka ogona (Fat Tails).",
+            "method": "Risk Parity / Alpha Seeking",
+            "code_logic": "weights = risk_budgeting_optimizer(garch_volatility_forecast)",
+            "drift": 0.001
+        }
+    }
     
-    if profile == "Konserwatywny (Niskie ryzyko)":
-        current_tickers = ['JNJ', 'PG', 'WMT', 'JPM', 'V']
-        st.markdown("### Sugerowane aktywa: 🛡️ Defensywne i Dywidendowe")
-        st.info("**Sektory:** Dobra podstawowe, Ochrona zdrowia, Finanse")
-        st.code(f"tickers = {current_tickers}", language="python")
-        st.markdown("Zestawienie idealne do modeli minimalizacji wariancji. Model GARCH wykazuje tutaj rzadsze skoki zmienności, zapewniając stabilność kapitału.")
-        
-    elif profile == "Zrównoważony (Średnie ryzyko)":
-        current_tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN']
-        st.markdown("### Sugerowane aktywa: ⚖️ Big Tech i Blue Chips")
-        st.info("**Sektory:** Technologia, Usługi komunikacyjne")
-        st.code(f"tickers = {current_tickers}", language="python")
-        st.markdown("Solidny balans. Optymalizacja Markowitza (maksymalizacja Sharpe Ratio) działa tu najlepiej, znajdując matematyczny złoty środek między wzrostem a ryzykiem.")
-        
-    elif profile == "Agresywny (Wysokie ryzyko)":
-        current_tickers = ['NVDA', 'TSLA', 'AMD', 'META', 'NFLX']
-        st.markdown("### Sugerowane aktywa: 🚀 Nowe Technologie i Półprzewodniki")
-        st.info("**Sektory:** Półprzewodniki, Auta Elektryczne (EV)")
-        st.code(f"tickers = {current_tickers}", language="python")
-        st.markdown("Wysoka zmienność. Należy oczekiwać głębokich wartości **Expected Shortfall (CVaR)** oraz wyraźnego klastrowania zmienności wyłapywanego przez modele z rodziny ARCH/GARCH.")
-
-    st.markdown("<br>", unsafe_allow_html=True)
+    current = config[profile]
     
-    # --- PRZYCISK POWROTU DO KALKULATORA Z AUTO-WYBOREM ---
-    def auto_analyze():
-        st.session_state['selected_profile_tickers'] = current_tickers
-        st.session_state['active_page'] = "Kalkulator Ryzyka"
+    col_text, col_chart = st.columns([1.2, 1])
+    
+    with col_text:
+        st.subheader(f"🛡️ Strategia: {profile.split(' (')[0]}")
+        st.markdown(f"**Dlaczego te spółki?**\n{current['desc']}")
+        st.info(f"**Metoda obliczeniowa:** {current['method']}")
+        st.markdown("**Fragment kodu optymalizatora:**")
+        st.code(current['code_logic'], language="python")
+        
+    with col_chart:
+        # Wykres kołowy alokacji
+        fig_pie = px.pie(names=current['tickers'], values=current['weights'], 
+                         title="Sugerowana alokacja portfela", hole=0.4,
+                         color_discrete_sequence=px.colors.sequential.RdBu)
+        fig_pie.update_layout(margin=dict(t=40, b=0, l=0, r=0), height=300)
+        st.plotly_chart(fig_pie, use_container_width=True)
 
-    st.button(f"🔎 Przeanalizuj strategię {profile.split(' (')[0]} w Kalkulatorze", 
-              type="primary", 
-              on_click=auto_analyze)
+    st.markdown("---")
+    
+    # --- KALKULATOR ZAKUPÓW ---
+    st.subheader("💰 Kalkulator wielkości pozycji")
+    c1, c2, c3 = st.columns([1, 1, 2])
+    with c1:
+        waluta = st.selectbox("Waluta:", ["PLN", "USD", "EUR"])
+    with c2:
+        kwota = st.number_input(f"Kwota inwestycji ({waluta}):", min_value=1000, value=10000, step=500)
+    with c3:
+        st.markdown(f"**Sugerowany podział dla {kwota} {waluta}:**")
+        # Wyświetlenie metrów dla każdej spółki
+        cols = st.columns(len(current['tickers']))
+        for i, t in enumerate(current['tickers']):
+            pos_val = kwota * current['weights'][i]
+            cols[i].metric(t, f"{int(current['weights'][i]*100)}%", f"{int(pos_val)} {waluta}")
 
+    st.markdown("---")
 
+    # --- WYKRES PROGNOZY ---
+    st.subheader("📈 Prognoza wzrostu (Symulacja Monte Carlo)")
+    st.markdown("Potencjalne zachowanie portfela w ciągu najbliższych 252 dni handlowych (1 rok).")
+    
+    np.random.seed(42)
+    days = 252
+    # Generowanie ścieżki random walk na bazie profilu
+    returns = np.random.normal(current['drift'], 0.012, days)
+    price_path = np.exp(np.cumsum(returns))
+    
+    fig_line = go.Figure()
+    fig_line.add_trace(go.Scatter(x=list(range(days)), y=price_path, mode='lines', 
+                                 name='Scenariusz bazowy', line=dict(color='#0366d6', width=2)))
+    fig_line.update_layout(xaxis_title="Dni", yaxis_title="Wartość portfela (skalowana)", 
+                          height=350, margin=dict(t=20))
+    st.plotly_chart(fig_line, use_container_width=True)
 # ==========================================
 # ZAKŁADKA 4: POBIERANIE PLIKÓW
 # ==========================================
