@@ -107,7 +107,7 @@ with st.sidebar:
 # ==========================================
 if page == "Opis projektu":
     st.title("Kalkulator Ryzyka Inwestycyjnego")
-    st.markdown("**Czym jest ten projekt?**\nJest to zaawansowane, ale proste w użyciu narzędzie do analizy bezpieczeństwa i optymalizacji portfeli inwestycyjnych na giełdzie.")
+    st.markdown("**Czym jest ten projekt?**\nJest to proste w użyciu narzędzie do analizy bezpieczeństwa i optymalizacji portfeli inwestycyjnych na giełdzie.")
     st.markdown("**Dla kogo jest przeznaczone?**\nDla każdego inwestora, analityka lub programisty, który chce lepiej zrozumieć, ile ryzykuje na giełdzie i jak zbalansować swoje akcje, aby zminimalizować ewentualne straty.")
     
     st.subheader("Instalacja modułu (dla programistów)")
@@ -116,8 +116,8 @@ if page == "Opis projektu":
     st.markdown("---")
     st.subheader("Wdrożona Architektura")
     st.markdown("""
-    System pod spodem wykorzystuje zaawansowany silnik matematyczny do wyceny ryzyka. 
-    Aplikacja jest połączona z asynchronicznym API, które na bieżąco pobiera dane i wykonuje skomplikowane wektoryzowane obliczenia (NumPy, Pandas), ukrywając całą trudną matematykę pod przystępnym interfejsem.
+    System pod spodem wykorzystuje silnik matematyczny do wyceny ryzyka. 
+    Aplikacja jest połączona z asynchronicznym API, które na bieżąco pobiera dane i wykonuje wektoryzowane obliczenia (NumPy, Pandas), ukrywając całą matematykę pod interfejsem.
     """)
     
     st.subheader("Kluczowe możliwości algorytmu")
@@ -126,12 +126,12 @@ if page == "Opis projektu":
     * **Maksymalizacja zysków:** Optymalizacja portfela metodą Markowitza w celu znalezienia idealnego balansu między ryzykiem a zyskiem.
     * **Ocena historyczna:** Parametryczny i Historyczny VaR (Value at Risk - wskaźnik zagrożenia kapitału).
     * **Analiza zmienności:** Prognozowanie przyszłych wahań cen za pomocą procesów GARCH(1,1).
-    * **Symulacje przyszłości:** Generowanie tysięcy losowych ścieżek rozwoju portfela (Metoda Monte Carlo).
+    * **Symulacje przyszłości:** Generowanie losowych ścieżek rozwoju portfela (Metoda Monte Carlo).
     * **Weryfikacja modeli:** Automatyczny backtesting (Test Kupca) weryfikujący, czy modele matematyczne sprawdzały się w przeszłości.
     """)
     
     st.subheader("Szybki start - Przykład użycia API w kodzie")
-    st.markdown("Jeśli chcesz zintegrować nasz kalkulator we własnym skrypcie Python, użyj poniższego kodu:")
+    st.markdown("Jeśli chcesz zintegrować kalkulator we własnym skrypcie Python, użyj poniższego kodu:")
     
     st.code("""
     from core.risk_metrics import calculate_comprehensive_metrics
@@ -157,7 +157,7 @@ if page == "Opis projektu":
 # ==========================================
 elif page == "Kalkulator Ryzyka":
     st.title("Interaktywny Kalkulator Ryzyka")
-    st.markdown("Przetestuj swoje inwestycje. Wybierz spółki ze swojego portfela (lub całe ETF-y), a nasz algorytm przeanalizuje ich historię, zoptymalizuje wagi i pokaże Ci ukryte ryzyko.")
+    st.markdown("Przetestuj swoje inwestycje. Wybierz spółki ze swojego portfela (lub całe ETF-y), a algorytm przeanalizuje ich historię, zoptymalizuje wagi i pokaże Ci ukryte ryzyko.")
     
     st.markdown("---")
     
@@ -201,7 +201,7 @@ elif page == "Kalkulator Ryzyka":
         if len(st.session_state.selected_tickers) < 2:
             st.warning("Wybierz co najmniej 2 spółki, aby wykonać optymalizację portfela.")
         else:
-            with st.spinner("Trwa pobieranie danych giełdowych i symulacja scenariuszy strat (to może potrwać do minuty)..."):
+            with st.spinner("Trwa pobieranie danych giełdowych i symulacja scenariuszy strat (to może potrwać do minuty, w przypadku błędu spróbuj ponownie)..."):
                 try:
                     # <--- WYDŁUŻAMY TIMEOUT Z 15 do 90 SEKUND
                     res = requests.get("https://quantriskengine.onrender.com/v1/portfolio/risk", params={"tickers": st.session_state.selected_tickers}, timeout=90)
@@ -311,58 +311,109 @@ elif page == "Kalkulator Ryzyka":
 
 
 # ==========================================
-# ZAKŁADKA 3: DORADCA PORTFELOWY 
+# ZAKŁADKA 3: DORADCA PORTFELOWY (OBLICZENIA NA ŻYWO)
 # ==========================================
 elif page == "Doradca Portfelowy":
     st.title("Inteligentny Doradca Portfelowy")
-    st.markdown("Wybierz swój profil inwestycyjny, a algorytm zaproponuje strukturę portfela opartą o zaawansowane modele matematyczne.")
+    st.markdown("Wybierz swój profil inwestycyjny. Algorytm na żywo pobierze dane z giełdy i zoptymalizuje wagi dla wybranej grupy aktywów.")
     
     profile = st.selectbox("Określ swoją tolerancję na ryzyko:", 
                           ["Konserwatywny (Niskie ryzyko)", "Zrównoważony (Średnie ryzyko)", "Agresywny (Wysokie ryzyko)"])
     
     st.markdown("---")
     
-    config = {
+    # 1. Konfiguracja puli spółek pod profil
+    base_config = {
         "Konserwatywny (Niskie ryzyko)": {
             "tickers": ["JNJ", "PG", "WMT", "JPM", "V"],
-            "weights": [0.25, 0.25, 0.20, 0.15, 0.15],
-            "desc": "Zestawienie idealne do minimalizacji wahań. Wybrano spółki o stabilnych dywidendach i silnej pozycji rynkowej.",
-            "method": "Global Minimum Variance (GMV)",
+            "desc": "Zestawienie idealne do minimalizacji wahań. Szukamy portfela o najmniejszym możliwym ryzyku.",
+            "method": "Global Minimum Variance (GMV) - Optymalizacja na żywo",
             "code_logic": "weights = min_variance_optimizer(returns_cov_matrix)",
-            "drift": 0.0002
+            "strategy_type": "min_vol"
         },
         "Zrównoważony (Średnie ryzyko)": {
             "tickers": ["AAPL", "MSFT", "GOOGL", "AMZN"],
-            "weights": [0.30, 0.30, 0.20, 0.20],
-            "desc": "Solidny balans między wzrostem kapitału a bezpieczeństwem. Znajduje złoty środek między oczekiwanym zyskiem a ryzykiem.",
-            "method": "Maximum Sharpe Ratio (MSR)",
+            "desc": "Solidny balans. Algorytm szuka tzw. Złotego Środka na podstawie wskaźnika Sharpe'a.",
+            "method": "Maximum Sharpe Ratio (MSR) - Optymalizacja na żywo",
             "code_logic": "weights = max_sharpe_optimizer(expected_returns, cov_matrix)",
-            "drift": 0.0005
+            "strategy_type": "max_sharpe"
         },
         "Agresywny (Wysokie ryzyko)": {
             "tickers": ["NVDA", "TSLA", "AMD", "META", "NFLX"],
-            "weights": [0.35, 0.25, 0.15, 0.15, 0.10],
-            "desc": "Skupienie na firmach technologicznych z dużą dynamiką (Growth). Akceptujemy duże wahania w zamian za szansę na wysokie zyski.",
-            "method": "Risk Parity / Alpha Seeking",
-            "code_logic": "weights = risk_budgeting_optimizer(garch_volatility_forecast)",
-            "drift": 0.001
+            "desc": "Skupienie na wysokiej dynamice. Algorytm faworyzuje spółki z najwyższym potencjałem wzrostu.",
+            "method": "Maximum Return Seeking - Optymalizacja na żywo",
+            "code_logic": "weights = max_return_optimizer(expected_returns)",
+            "strategy_type": "max_return"
         }
     }
     
-    current = config[profile]
+    current_setup = base_config[profile]
+    tickers = current_setup["tickers"]
+    strategy = current_setup["strategy_type"]
     
+    # Zmienne na wyniki
+    current_weights = []
+    expected_drift = 0.0
+    volatility = 0.012
+    
+    # 2. Silnik Optymalizacji (Obliczenia na żywo)
+    with st.spinner(f"Pobieram dane dla {', '.join(tickers)} i generuję 5000 symulacji by znaleźć najlepsze wagi..."):
+        try:
+            # Pobieranie świeżych danych (1 rok)
+            data = yf.download(tickers, period="1y", progress=False)
+            if 'Adj Close' in data: prices = data['Adj Close']
+            else: prices = data['Close']
+            
+            returns = prices.pct_change().dropna()
+            mean_returns = returns.mean() * 252
+            cov_matrix = returns.cov() * 252
+            
+            # Symulacja Monte Carlo
+            np.random.seed(42)
+            num_ports = 5000
+            all_w = np.zeros((num_ports, len(tickers)))
+            ret_arr = np.zeros(num_ports)
+            vol_arr = np.zeros(num_ports)
+            sharpe_arr = np.zeros(num_ports)
+            
+            for x in range(num_ports):
+                w = np.array(np.random.random(len(tickers)))
+                w = w / np.sum(w)
+                all_w[x, :] = w
+                
+                port_ret = np.sum(mean_returns * w)
+                port_vol = np.sqrt(np.dot(w.T, np.dot(cov_matrix, w)))
+                
+                ret_arr[x] = port_ret
+                vol_arr[x] = port_vol
+                sharpe_arr[x] = port_ret / port_vol
+                
+            # Wybór zwycięskiego układu wag w zależności od celu profilu
+            if strategy == "min_vol": best_idx = vol_arr.argmin()
+            elif strategy == "max_sharpe": best_idx = sharpe_arr.argmax()
+            else: best_idx = ret_arr.argmax()
+                
+            current_weights = all_w[best_idx].tolist()
+            expected_drift = ret_arr[best_idx] / 252 # drift dzienny dla wykresu
+            volatility = vol_arr[best_idx] / np.sqrt(252) # dzienna zmiennosc dla wykresu
+            
+        except Exception as e:
+            st.error(f"Błąd podczas obliczeń giełdowych: {e}. Przechodzę na równe wagi awaryjne.")
+            current_weights = [1/len(tickers)] * len(tickers)
+            expected_drift = 0.0005
+
     col_text, col_chart = st.columns([1.2, 1])
     
     with col_text:
         st.subheader(f"🛡️ Strategia: {profile.split(' (')[0]}")
-        st.markdown(f"**Dlaczego te spółki?**\n{current['desc']}")
-        st.info(f"**Metoda obliczeniowa pod maską:** {current['method']}")
+        st.markdown(f"**Dlaczego te spółki?**\n{current_setup['desc']}")
+        st.info(f"**Metoda obliczeniowa pod maską:** {current_setup['method']}")
         st.markdown("**Zastosowany silnik:**")
-        st.code(current['code_logic'], language="python")
+        st.code(current_setup['code_logic'], language="python")
         
     with col_chart:
-        fig_pie = px.pie(names=current['tickers'], values=current['weights'], 
-                         title="Sugerowana budowa portfela", hole=0.4,
+        fig_pie = px.pie(names=tickers, values=current_weights, 
+                         title="Wyliczona na żywo struktura portfela", hole=0.4,
                          color_discrete_sequence=px.colors.sequential.RdBu)
         fig_pie.update_layout(margin=dict(t=40, b=0, l=0, r=0), height=300)
         st.plotly_chart(fig_pie, use_container_width=True)
@@ -376,21 +427,21 @@ elif page == "Doradca Portfelowy":
     with c2:
         kwota = st.number_input(f"Kwota inwestycji ({waluta}):", min_value=1000, value=10000, step=500)
     with c3:
-        st.markdown(f"**Sugerowany podział dla {kwota} {waluta}:**")
-        cols = st.columns(len(current['tickers']))
-        for i, t in enumerate(current['tickers']):
-            pos_val = kwota * current['weights'][i]
-            cols[i].metric(t, f"{int(current['weights'][i]*100)}%", f"{int(pos_val)} {waluta}")
+        st.markdown(f"**Wyliczony podział kapitału dla {kwota} {waluta}:**")
+        cols = st.columns(len(tickers))
+        for i, t in enumerate(tickers):
+            pos_val = kwota * current_weights[i]
+            cols[i].metric(t, f"{int(current_weights[i]*100)}%", f"{int(pos_val)} {waluta}")
 
     st.markdown("---")
 
     st.subheader("📈 Prognoza wzrostu (Symulacja Komputerowa)")
-    st.markdown("Potencjalne zachowanie Twojego kapitału w ciągu najbliższych 252 dni handlowych (1 rok).")
+    st.markdown("Potencjalne zachowanie zoptymalizowanego portfela w ciągu najbliższych 252 dni handlowych (1 rok).")
     
     np.random.seed(42)
     days = 252
-    returns = np.random.normal(current['drift'], 0.012, days)
-    price_path = np.exp(np.cumsum(returns))
+    simulated_returns = np.random.normal(expected_drift, volatility, days)
+    price_path = np.exp(np.cumsum(simulated_returns))
     
     fig_line = go.Figure()
     fig_line.add_trace(go.Scatter(x=list(range(days)), y=price_path, mode='lines', 
