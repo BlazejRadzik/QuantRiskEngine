@@ -83,7 +83,7 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("### Twórcy")
-    st.markdown("<div class='sidebar-meta'>👤 <strong>Twórca Kalkulatora</strong></div>", unsafe_allow_html=True)
+    st.markdown("<div class='sidebar-meta'>👤 <strong>BR</strong></div>", unsafe_allow_html=True)
     
     st.markdown("---")
     st.markdown("### Metadane")
@@ -91,7 +91,6 @@ with st.sidebar:
     <div class='sidebar-meta'>
     <ul>
         <li><strong>Licencja:</strong> MIT</li>
-        <li><strong>Autor:</strong> Risk Team</li>
         <li>🏷️ python, finanse, ryzyko, inwestycje</li>
     </ul>
     </div>
@@ -201,7 +200,7 @@ elif page == "Kalkulator Ryzyka":
         if len(st.session_state.selected_tickers) < 2:
             st.warning("Wybierz co najmniej 2 spółki, aby wykonać optymalizację portfela.")
         else:
-            with st.spinner("Trwa pobieranie danych giełdowych i symulacja scenariuszy strat (to może potrwać do minuty, w przypadku błędu spróbuj ponownie)..."):
+            with st.spinner("Trwa pobieranie danych giełdowych i symulacja scenariuszy strat (to może potrwać do półtorej minuty, w przypadku błędu spróbuj ponownie)..."):
                 try:
                     # <--- WYDŁUŻAMY TIMEOUT Z 15 do 90 SEKUND
                     res = requests.get("https://quantriskengine.onrender.com/v1/portfolio/risk", params={"tickers": st.session_state.selected_tickers}, timeout=90)
