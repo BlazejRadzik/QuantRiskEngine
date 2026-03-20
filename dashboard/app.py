@@ -51,7 +51,6 @@ POPULAR_TICKERS = ["AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "NVDA", "NFL
 # --- PASEK BOCZNY (SIDEBAR) JAK W PYPI ---
 with st.sidebar:
     st.markdown("### Nawigacja")
-    # Menu nawigacyjne - dzięki CSS kółka znikną, a pojawią się bloki!
     page = st.radio("Przejdź do", 
                     ["Opis projektu", "Kalkulator Ryzyka", "Doradca Portfelowy", "Pobierz pliki"], 
                     label_visibility="collapsed")
@@ -144,7 +143,8 @@ elif page == "Kalkulator Ryzyka":
         else:
             with st.spinner("Trwa pobieranie danych z giełdy i obliczanie modeli ryzyka (GARCH, VaR, Monte Carlo)..."):
                 try:
-                    res = requests.get("http://127.0.0.1:8000/v1/portfolio/risk", params={"tickers": tickers_input}, timeout=15)
+                    # ADRES ZMIENIONY NA PUBLICZNY API RENDER
+                    res = requests.get("https://quantriskengine.onrender.com/v1/portfolio/risk", params={"tickers": tickers_input}, timeout=15)
                     res.raise_for_status()
                     data = res.json()
                     
@@ -158,25 +158,25 @@ elif page == "Kalkulator Ryzyka":
                     
                     with col1:
                         st.markdown("<div class='result-box'><div class='metric-label'>Roczna zmienność (Volatility)</div>"
-                                    f"<div class='metric-value'>{risk.get('volatility')}</div></div>", unsafe_allow_html=True)
+                                    f"<div class='metric-value'>{risk.get('volatility', 'N/A')}</div></div>", unsafe_allow_html=True)
                         st.markdown("<div class='result-box'><div class='metric-label'>Parametryczny VaR (95%)</div>"
-                                    f"<div class='metric-value' style='color:#d73a49;'>{risk.get('parametric', {}).get('var')}</div></div>", unsafe_allow_html=True)
+                                    f"<div class='metric-value' style='color:#d73a49;'>{risk.get('parametric', {}).get('var', 'N/A')}</div></div>", unsafe_allow_html=True)
                     
                     with col2:
                         st.markdown("<div class='result-box'><div class='metric-label'>Historyczny VaR (95%)</div>"
-                                    f"<div class='metric-value' style='color:#d73a49;'>{risk.get('historical', {}).get('var')}</div></div>", unsafe_allow_html=True)
+                                    f"<div class='metric-value' style='color:#d73a49;'>{risk.get('historical', {}).get('var', 'N/A')}</div></div>", unsafe_allow_html=True)
                         st.markdown("<div class='result-box'><div class='metric-label'>Oczekiwana strata (CVaR)</div>"
-                                    f"<div class='metric-value' style='color:#cb2431;'>{risk.get('historical', {}).get('es')}</div></div>", unsafe_allow_html=True)
+                                    f"<div class='metric-value' style='color:#cb2431;'>{risk.get('historical', {}).get('es', 'N/A')}</div></div>", unsafe_allow_html=True)
 
                     with col3:
                         st.markdown("<div class='result-box'><div class='metric-label'>Status Walidacji (Test Kupca)</div>"
-                                    f"<div class='metric-value' style='color:#28a745;'>{backtest.get('status')}</div>"
-                                    f"<div style='font-size:12px; color:#586069;'>Liczba przekroczeń: {backtest.get('violations')}</div></div>", unsafe_allow_html=True)
+                                    f"<div class='metric-value' style='color:#28a745;'>{backtest.get('status', 'N/A')}</div>"
+                                    f"<div style='font-size:12px; color:#586069;'>Liczba przekroczeń: {backtest.get('violations', 'N/A')}</div></div>", unsafe_allow_html=True)
                         st.markdown("<div class='result-box'><div class='metric-label'>Monte Carlo VaR</div>"
-                                    f"<div class='metric-value' style='color:#d73a49;'>{risk.get('monte_carlo', {}).get('var')}</div></div>", unsafe_allow_html=True)
+                                    f"<div class='metric-value' style='color:#d73a49;'>{risk.get('monte_carlo', {}).get('var', 'N/A')}</div></div>", unsafe_allow_html=True)
 
                 except requests.exceptions.ConnectionError:
-                    st.error("Błąd połączenia. Upewnij się, że serwer FastAPI (uvicorn) jest uruchomiony w drugim terminalu.")
+                    st.error("Błąd połączenia z API na Render. Serwer może być w trybie uśpienia (wymaga do 50s na start na darmowym planie). Spróbuj ponownie za chwilę.")
                 except Exception as e:
                     st.error(f"Wystąpił błąd podczas obliczeń: {e}")
 
