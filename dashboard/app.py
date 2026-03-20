@@ -1,3 +1,5 @@
+from core.models import get_optimal_weights, simulate_monte_carlo
+from core.risk_metrics import calculate_portfolio_metrics
 from scipy.stats import skew, kurtosis
 import sys
 import os
@@ -329,22 +331,22 @@ elif page == "Doradca Portfelowy":
         "Konserwatywny (Niskie ryzyko)": {
             "tickers": ["JNJ", "PG", "WMT", "JPM", "V"],
             "desc": "Zestawienie idealne do minimalizacji wahań. Szukamy portfela o najmniejszym możliwym ryzyku.",
-            "method": "Global Minimum Variance (GMV) - Optymalizacja na żywo",
-            "code_logic": "weights = min_variance_optimizer(returns_cov_matrix)",
+            "method": "Global Minimum Variance (GMV) - Optymalizacja matematyczna Scipy",
+            "code_logic": "weights = get_optimal_weights(returns, 'min_vol')",
             "strategy_type": "min_vol"
         },
         "Zrównoważony (Średnie ryzyko)": {
             "tickers": ["AAPL", "MSFT", "GOOGL", "AMZN"],
             "desc": "Solidny balans. Algorytm szuka tzw. Złotego Środka na podstawie wskaźnika Sharpe'a.",
-            "method": "Maximum Sharpe Ratio (MSR) - Optymalizacja na żywo",
-            "code_logic": "weights = max_sharpe_optimizer(expected_returns, cov_matrix)",
+            "method": "Maximum Sharpe Ratio (MSR) - Optymalizacja matematyczna Scipy",
+            "code_logic": "weights = get_optimal_weights(returns, 'max_sharpe')",
             "strategy_type": "max_sharpe"
         },
         "Agresywny (Wysokie ryzyko)": {
             "tickers": ["NVDA", "TSLA", "AMD", "META", "NFLX"],
             "desc": "Skupienie na wysokiej dynamice. Algorytm faworyzuje spółki z najwyższym potencjałem wzrostu.",
-            "method": "Maximum Return Seeking - Optymalizacja na żywo",
-            "code_logic": "weights = max_return_optimizer(expected_returns)",
+            "method": "Maximum Return Seeking - Optymalizacja matematyczna Scipy",
+            "code_logic": "weights = get_optimal_weights(returns, 'max_return')",
             "strategy_type": "max_return"
         }
     }
@@ -355,65 +357,38 @@ elif page == "Doradca Portfelowy":
     
     # Zmienne na wyniki
     current_weights = []
-    expected_drift = 0.0
-    volatility = 0.012
     
-    # 2. Silnik Optymalizacji (Obliczenia na żywo)
-    with st.spinner(f"Pobieram dane dla {', '.join(tickers)} i generuję 5000 symulacji by znaleźć najlepsze wagi..."):
+    # 2. Silnik Optymalizacji (Obliczenia na żywo - NAPRAWIONE)
+    with st.spinner(f"Pobieram dane dla {', '.join(tickers)} i obliczam optymalne wagi..."):
         try:
             # Pobieranie świeżych danych (1 rok)
             data = load_data(tickers)
             if 'Adj Close' in data: prices = data['Adj Close']
             else: prices = data['Close']
             
-            # --- NOWE METRYKI QUANT ---
+            # Przygotowanie danych
             returns = prices.pct_change().dropna()
-            port_returns = returns.mean(axis=1)
+            
+            # --- PRAWDZIWA OPTYMALIZACJA Z CORE ---
+            current_weights = get_optimal_weights(returns, strategy)
+            metrics = calculate_portfolio_metrics(current_weights, returns)
+            
+            # Zapisanie wyników do sesji na potrzeby raportu JSON z Zakładki 4
+            st.session_state.last_opt_weights = dict(zip(tickers, current_weights))
+            st.session_state.last_opt_metrics = metrics
+            
+            # Wyciągnięcie zmiennych do wykresów poniżej
+            port_returns = metrics["portfolio_returns_series"]
+            sortino_ratio = metrics["sortino_ratio"]
+            skewness_val = metrics["skewness"]
+            kurt_val = metrics["kurtosis"]
 
-            # Sortino
-            downside_returns = returns[returns < 0]
-            downside_std = downside_returns.std() * np.sqrt(252)
-            sortino_ratio = (returns.mean().mean()) / downside_std.mean()
-
-            # Skewness & Kurtosis
-            skewness_val = skew(port_returns)
-            kurt_val = kurtosis(port_returns)
-            mean_returns = returns.mean() * 252
-            cov_matrix = returns.cov() * 252
-            
-            # Symulacja Monte Carlo
-            np.random.seed(42)
-            num_ports = 5000
-            all_w = np.zeros((num_ports, len(tickers)))
-            ret_arr = np.zeros(num_ports)
-            vol_arr = np.zeros(num_ports)
-            sharpe_arr = np.zeros(num_ports)
-            
-            for x in range(num_ports):
-                w = np.array(np.random.random(len(tickers)))
-                w = w / np.sum(w)
-                all_w[x, :] = w
-                
-                port_ret = np.sum(mean_returns * w)
-                port_vol = np.sqrt(np.dot(w.T, np.dot(cov_matrix, w)))
-                
-                ret_arr[x] = port_ret
-                vol_arr[x] = port_vol
-                sharpe_arr[x] = port_ret / port_vol
-                
-            # Wybór zwycięskiego układu wag w zależności od celu profilu
-            if strategy == "min_vol": best_idx = vol_arr.argmin()
-            elif strategy == "max_sharpe": best_idx = sharpe_arr.argmax()
-            else: best_idx = ret_arr.argmax()
-                
-            current_weights = all_w[best_idx].tolist()
-            expected_drift = ret_arr[best_idx] / 252 # drift dzienny dla wykresu
-            volatility = vol_arr[best_idx] / np.sqrt(252) # dzienna zmiennosc dla wykresu
-            
         except Exception as e:
             st.error(f"Błąd podczas obliczeń giełdowych: {e}. Przechodzę na równe wagi awaryjne.")
             current_weights = [1/len(tickers)] * len(tickers)
-            expected_drift = 0.0005
+            returns = pd.DataFrame() # Puste dla uniknięcia błędów dalej
+            port_returns = pd.Series([0])
+            sortino_ratio, skewness_val, kurt_val = 0.0, 0.0, 0.0
 
     col_text, col_chart = st.columns([1.2, 1])
     
@@ -444,36 +419,28 @@ elif page == "Doradca Portfelowy":
         cols = st.columns(len(tickers))
         for i, t in enumerate(tickers):
             pos_val = kwota * current_weights[i]
-            cols[i].metric(t, f"{int(current_weights[i]*100)}%", f"{int(pos_val)} {waluta}")
+            # NAPRAWIONE: Użycie round() by nie "gubił" resztek procentów z kapitału
+            cols[i].metric(t, f"{round(current_weights[i]*100)}%", f"{round(pos_val, 2)} {waluta}")
 
     st.markdown("---")
 
     st.subheader("📈 Prognoza wzrostu (Symulacja Komputerowa)")
     st.markdown("Potencjalne zachowanie zoptymalizowanego portfela w ciągu najbliższych 252 dni handlowych (1 rok).")
     
-    np.random.seed(42)
-    days = 252
-    # Bootstrap (realistyczne)
-    portfolio_returns = returns.mean(axis=1).values
-
-    simulated_returns = np.random.choice(
-        portfolio_returns,
-        size=days,
-        replace=True
-    )
+    # NAPRAWIONE: Wielościeżkowa symulacja z backendu
+    mean_path, worst_path, best_path = simulate_monte_carlo(port_returns)
     
-    # Naprawiona logika dla price_path
-    price_path = np.exp(np.cumsum(simulated_returns))
-    
-    cum_max = np.maximum.accumulate(price_path)
-    drawdown = (price_path - cum_max) / cum_max
+    # Obliczanie maksymalnego osunięcia (Drawdown) na podstawie uśrednionej ścieżki
+    cum_max = np.maximum.accumulate(mean_path)
+    drawdown = (mean_path - cum_max) / cum_max
     max_drawdown = drawdown.min()
     
     fig_line = go.Figure()
-    fig_line.add_trace(go.Scatter(x=list(range(days)), y=price_path, mode='lines', 
-                                  name='Scenariusz bazowy', line=dict(color='#0366d6', width=2)))
-    fig_line.update_layout(xaxis_title="Dni z rzędu", yaxis_title="Wartość portfela", 
-                           height=350, margin=dict(t=20))
+    fig_line.add_trace(go.Scatter(y=mean_path, mode='lines', name='Scenariusz bazowy', line=dict(color='#0366d6', width=2)))
+    fig_line.add_trace(go.Scatter(y=best_path, mode='lines', name='Optymistycznie (95%)', line=dict(color='#28a745', dash='dot')))
+    fig_line.add_trace(go.Scatter(y=worst_path, mode='lines', name='Pesymistycznie (5%)', line=dict(color='#d73a49', dash='dot')))
+    
+    fig_line.update_layout(xaxis_title="Dni z rzędu", yaxis_title="Wartość portfela", height=350, margin=dict(t=20))
     st.plotly_chart(fig_line, use_container_width=True)
     
     col_m1, col_m2, col_m3 = st.columns(3)
@@ -483,6 +450,8 @@ elif page == "Doradca Portfelowy":
     col_m3.metric("Skewness", f"{round(skewness_val, 2)}")
 
     st.metric("Kurtosis", f"{round(kurt_val, 2)}")
+    
+    # PRZYWRÓCONE WYKRESY Z ORYGINAŁU
     fig_hist = go.Figure()
 
     fig_hist.add_trace(go.Histogram(
@@ -506,28 +475,34 @@ elif page == "Doradca Portfelowy":
     )
 
     st.plotly_chart(fig_hist, use_container_width=True)
-    rolling_vol = returns.std(axis=1).rolling(window=30).mean() * np.sqrt(252)
+    
+    if not returns.empty:
+        rolling_vol = returns.std(axis=1).rolling(window=30).mean() * np.sqrt(252)
 
-    fig_vol = go.Figure()
-    fig_vol.add_trace(go.Scatter(y=rolling_vol, mode='lines'))
+        fig_vol = go.Figure()
+        fig_vol.add_trace(go.Scatter(y=rolling_vol, mode='lines'))
 
-    fig_vol.update_layout(
-        title="Rolling Volatility (30d)",
-        height=300
-    )
+        fig_vol.update_layout(
+            title="Rolling Volatility (30d)",
+            height=300
+        )
 
-    st.plotly_chart(fig_vol, use_container_width=True)
+        st.plotly_chart(fig_vol, use_container_width=True)
 
 
-# <--- TU BYŁ BŁĄD Z WCIĘCIAMI (INDENTATION) --->
 # ==========================================
 # ZAKŁADKA 4: POBIERANIE PLIKÓW 
 # ==========================================
 elif page == "Pobierz pliki":
     st.title("Pobieranie plików i zasobów")
     st.markdown("Wygeneruj raport i **prawdziwe dane historyczne** dla spółek wybranych w Kalkulatorze.")
-    st.info(f"Aktualnie do portfela wybrano: **{', '.join(st.session_state.selected_tickers)}**")
     
+    if len(st.session_state.selected_tickers) > 0:
+        st.info(f"Aktualnie do portfela wybrano: **{', '.join(st.session_state.selected_tickers)}**")
+    else:
+        st.info("Brak wybranych spółek.")
+    
+    # PRZYWRÓCONY CAŁY BLOK POBIERANIA CSV
     st.markdown("### Krok 1: Pobierz surowe dane z giełdy")
     st.markdown("Kliknij poniżej, aby pobrać faktyczne, codzienne stopy zwrotu z ostatniego roku dla wybranych spółek.")
     
@@ -535,7 +510,6 @@ elif page == "Pobierz pliki":
         if len(st.session_state.selected_tickers) > 0:
             with st.spinner("Łączenie z rynkiem finansowym i generowanie arkusza..."):
                 try:
-                    # <--- NAPRAWIONA LOGIKA POBIERANIA ABY PLIK ZAWSZE MIAŁ DANE
                     data = yf.download(st.session_state.selected_tickers, period="1y", progress=False)
                     
                     if 'Adj Close' in data:
@@ -545,11 +519,9 @@ elif page == "Pobierz pliki":
                     else:
                         raise ValueError("Brak odpowiednich danych cenowych w odpowiedzi z giełdy.")
 
-                    # Zabezpieczenie na wypadek wyboru tylko 1 spółki
                     if isinstance(prices, pd.Series):
                         prices = prices.to_frame(name=st.session_state.selected_tickers[0])
                         
-                    # Wyliczenie procentowych stóp zwrotu (wymagane w analizie ryzyka)
                     returns_df = prices.pct_change().dropna()
                     
                     if returns_df.empty:
@@ -571,15 +543,27 @@ elif page == "Pobierz pliki":
     
     st.markdown("---")
     st.markdown("### Krok 2: Konfiguracja silnika (JSON)")
-    dummy_report = {
-        "engine_version": "2.0.0",
-        "validation_tests": ["Kupiec POF", "Christoffersen Independence", "Monte Carlo Normalcy"],
-        "status": "Production Ready"
-    }
-    json_string = json.dumps(dummy_report, indent=4)
-    st.download_button(
-        label="📥 Pobierz raport bezpieczeństwa (JSON)",
-        file_name="risk_report.json",
-        mime="application/json",
-        data=json_string
-    )
+    
+    # NAPRAWIONE: Zamiast "makiety" generujemy raport z faktycznych wyliczeń usera
+    if 'last_opt_metrics' in st.session_state:
+        real_report = {
+            "engine_version": "2.1.0 (Scipy Optimized)",
+            "selected_assets_weights": st.session_state.last_opt_weights,
+            "metrics": {
+                "annual_return": round(st.session_state.last_opt_metrics["annual_return"], 4),
+                "annual_volatility": round(st.session_state.last_opt_metrics["annual_volatility"], 4),
+                "sortino_ratio": round(st.session_state.last_opt_metrics["sortino_ratio"], 4),
+                "skewness": round(st.session_state.last_opt_metrics["skewness"], 4),
+                "kurtosis": round(st.session_state.last_opt_metrics["kurtosis"], 4)
+            },
+            "status": "Calculated successfully"
+        }
+        json_string = json.dumps(real_report, indent=4)
+        st.download_button(
+            label="📥 Pobierz raport bezpieczeństwa (JSON)",
+            file_name="risk_report.json",
+            mime="application/json",
+            data=json_string
+        )
+    else:
+        st.info("Przejdź najpierw do zakładki 'Doradca Portfelowy' i pozwól systemowi przeliczyć wagi, aby wygenerować Twój unikalny raport w formacie JSON.")
