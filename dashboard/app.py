@@ -1,3 +1,4 @@
+from scipy.stats import skew, kurtosis
 import sys
 import os
 # Poprawka ścieżek dla Streamlit Cloud
@@ -11,7 +12,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 import yfinance as yf  # <--- BIBLIOTEKA DO POBIERANIA DANYCH DO CSV
-
+@st.cache_data(ttl=3600)
+def load_data(tickers):
+    data = yf.download(tickers, period="1y", progress=False)
+    return data
 # --- KONFIGURACJA STRONY ---
 st.set_page_config(page_title="Kalkulator Ryzyka Inwestycyjnego", layout="wide", initial_sidebar_state="expanded")
 
@@ -216,20 +220,17 @@ elif page == "Kalkulator Ryzyka":
                     st.markdown("Poniżej znajdziesz wyniki wskaźników z opisem, jak wpływają na Twoje pieniądze.")
                     
                     def get_eval_html(val_str, threshold_good, threshold_bad):
-                        if val_str in ['N/A', None, '']: return "<span style='color: gray;'>Brak danych do analizy</span>"
                         try:
                             v = float(str(val_str).replace('%', '').strip())
-                            v = abs(v) 
-                            if v < 1.0 and '%' not in str(val_str): 
-                                v = v * 100 
+                            v = abs(v)
                             if v <= threshold_good:
-                                return f"<span style='color: #28a745; font-weight: bold;'>{val_str} - Dobry wynik (Bezpiecznie)</span>"
+                                return f"<span style='color: #28a745; font-weight: bold;'>{val_str} - Low Risk</span>"
                             elif v >= threshold_bad:
-                                return f"<span style='color: #d73a49; font-weight: bold;'>{val_str} - Zły wynik (Duże ryzyko!)</span>"
+                                return f"<span style='color: #d73a49; font-weight: bold;'>{val_str} - High Risk</span>"
                             else:
-                                return f"<span style='color: #b08800; font-weight: bold;'>{val_str} - Przeciętny (Wymaga uwagi)</span>"
+                                return f"<span style='color: #b08800; font-weight: bold;'>{val_str} - Moderate Risk</span>"
                         except:
-                            return f"<span style='color: gray;'>{val_str} (Nietypowy format)</span>"
+                            return f"<span style='color: gray;'>{val_str}</span>"
 
                     st.markdown("---")
                     
@@ -359,11 +360,22 @@ elif page == "Doradca Portfelowy":
     with st.spinner(f"Pobieram dane dla {', '.join(tickers)} i generuję 5000 symulacji by znaleźć najlepsze wagi..."):
         try:
             # Pobieranie świeżych danych (1 rok)
-            data = yf.download(tickers, period="1y", progress=False)
+            data = load_data(tickers)
             if 'Adj Close' in data: prices = data['Adj Close']
             else: prices = data['Close']
             
+            # --- NOWE METRYKI QUANT ---
             returns = prices.pct_change().dropna()
+            port_returns = returns.mean(axis=1)
+
+            # Sortino
+            downside_returns = returns[returns < 0]
+            downside_std = downside_returns.std() * np.sqrt(252)
+            sortino_ratio = (returns.mean().mean()) / downside_std.mean()
+
+            # Skewness & Kurtosis
+            skewness_val = skew(port_returns)
+            kurt_val = kurtosis(port_returns)
             mean_returns = returns.mean() * 252
             cov_matrix = returns.cov() * 252
             
@@ -439,8 +451,17 @@ elif page == "Doradca Portfelowy":
     
     np.random.seed(42)
     days = 252
-    simulated_returns = np.random.normal(expected_drift, volatility, days)
-    price_path = np.exp(np.cumsum(simulated_returns))
+    # Bootstrap (realistyczne)
+    portfolio_returns = returns.mean(axis=1).values
+
+    simulated_returns = np.random.choice(
+        portfolio_returns,
+        size=days,
+        replace=True
+    )
+    cum_max = np.maximum.accumulate(price_path)
+    drawdown = (price_path - cum_max) / cum_max
+    max_drawdown = drawdown.min()
     
     fig_line = go.Figure()
     fig_line.add_trace(go.Scatter(x=list(range(days)), y=price_path, mode='lines', 
@@ -448,7 +469,47 @@ elif page == "Doradca Portfelowy":
     fig_line.update_layout(xaxis_title="Dni z rzędu", yaxis_title="Wartość portfela", 
                            height=350, margin=dict(t=20))
     st.plotly_chart(fig_line, use_container_width=True)
+    col_m1, col_m2, col_m3 = st.columns(3)
 
+    col_m1.metric("Max Drawdown", f"{round(max_drawdown*100, 2)}%")
+    col_m2.metric("Sortino Ratio", f"{round(sortino_ratio, 2)}")
+    col_m3.metric("Skewness", f"{round(skewness_val, 2)}")
+
+    st.metric("Kurtosis", f"{round(kurt_val, 2)}")
+    fig_hist = go.Figure()
+
+    fig_hist.add_trace(go.Histogram(
+        x=port_returns,
+        nbinsx=50,
+        name="Returns"
+    ))
+
+    var_95 = np.percentile(port_returns, 5)
+
+    fig_hist.add_vline(
+        x=var_95,
+        line_dash="dash",
+        annotation_text="VaR 95%",
+        annotation_position="top left"
+    )
+
+    fig_hist.update_layout(
+        title="Distribution of Portfolio Returns",
+        height=300
+    )
+
+    st.plotly_chart(fig_hist, use_container_width=True)
+    rolling_vol = returns.std(axis=1).rolling(window=30).mean() * np.sqrt(252)
+
+    fig_vol = go.Figure()
+    fig_vol.add_trace(go.Scatter(y=rolling_vol, mode='lines'))
+
+    fig_vol.update_layout(
+        title="Rolling Volatility (30d)",
+        height=300
+    )
+
+st.plotly_chart(fig_vol, use_container_width=True)
 
 # ==========================================
 # ZAKŁADKA 4: POBIERANIE PLIKÓW 
@@ -456,7 +517,6 @@ elif page == "Doradca Portfelowy":
 elif page == "Pobierz pliki":
     st.title("Pobieranie plików i zasobów")
     st.markdown("Wygeneruj raport i **prawdziwe dane historyczne** dla spółek wybranych w Kalkulatorze.")
-    
     st.info(f"Aktualnie do portfela wybrano: **{', '.join(st.session_state.selected_tickers)}**")
     
     st.markdown("### Krok 1: Pobierz surowe dane z giełdy")
@@ -512,5 +572,4 @@ elif page == "Pobierz pliki":
         label="📥 Pobierz raport bezpieczeństwa (JSON)",
         file_name="risk_report.json",
         mime="application/json",
-        data=json_string
-    )
+        data=json_string)
