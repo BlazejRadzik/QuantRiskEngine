@@ -3,126 +3,53 @@ import pandas as pd
 from scipy.optimize import minimize
 
 def get_optimal_weights(returns: pd.DataFrame, strategy: str) -> np.ndarray:
-    """
-    Oblicza optymalne wagi portfela za pomocą minimalizacji funkcji kosztu.
-    """
     num_assets = len(returns.columns)
     mean_returns = returns.mean() * 252
     cov_matrix = returns.cov() * 252
 
-    # Funkcje pomocnicze dla optymalizatora
-    def portfolio_performance(weights, mean_returns, cov_matrix):
-        p_ret = np.sum(mean_returns * weights)
-        p_vol = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
-        return p_vol, p_ret
+    def portfolio_vol(weights):
+        return np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
 
-    def min_volatility_objective(weights, mean_returns, cov_matrix):
-        return portfolio_performance(weights, mean_returns, cov_matrix)[0]
+    def portfolio_ret(weights):
+        return np.sum(mean_returns * weights)
 
-    def neg_sharpe_objective(weights, mean_returns, cov_matrix, risk_free=0):
-        p_vol, p_ret = portfolio_performance(weights, mean_returns, cov_matrix)
-        return -(p_ret - risk_free) / p_vol
-
-    def max_return_objective(weights, mean_returns, cov_matrix):
-        return -portfolio_performance(weights, mean_returns, cov_matrix)[1]
-
-    # Ograniczenia: suma wag musi wynosić 1 (100%)
-    constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-    
-    # ZMUSZAMY ALGORYTM DO DYWERSYFIKACJI
-    if num_assets >= 4:
-        bounds = tuple((0.05, 0.45) for _ in range(num_assets)) # Min 5%, Max 45%
-    elif num_assets == 3:
-        bounds = tuple((0.05, 0.60) for _ in range(num_assets)) # Min 5%, Max 60%
+    # Wymuszamy dywersyfikację: min 5%, max 45% (jeśli jest >=3 spółek)
+    if num_assets >= 3:
+        bounds = tuple((0.05, 0.45) for _ in range(num_assets))
     else:
-        bounds = tuple((0.05, 0.95) for _ in range(num_assets)) # Dla 2 spółek
+        bounds = tuple((0.05, 0.95) for _ in range(num_assets))
         
-    init_guess = np.array(num_assets * [1. / num_assets])
+    constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1.0})
+    init_guess = np.array([1.0 / num_assets] * num_assets)
 
-    # Wybór strategii
     if strategy == 'min_vol':
-        result = minimize(min_volatility_objective, init_guess, args=(mean_returns, cov_matrix),
-                          method='SLSQP', bounds=bounds, constraints=constraints)
+        res = minimize(lambda w: portfolio_vol(w), init_guess, method='SLSQP', bounds=bounds, constraints=constraints)
     elif strategy == 'max_sharpe':
-        result = minimize(neg_sharpe_objective, init_guess, args=(mean_returns, cov_matrix),
-                          method='SLSQP', bounds=bounds, constraints=constraints)
+        res = minimize(lambda w: -portfolio_ret(w)/portfolio_vol(w), init_guess, method='SLSQP', bounds=bounds, constraints=constraints)
     else:  # max_return
-        result = minimize(max_return_objective, init_guess, args=(mean_returns, cov_matrix),
-                          method='SLSQP', bounds=bounds, constraints=constraints)
+        res = minimize(lambda w: -portfolio_ret(w), init_guess, method='SLSQP', bounds=bounds, constraints=constraints)
 
-    return result.x
+    # BEZPIECZNIK NUMERYCZNY: Czyszczenie śmieci i wymuszenie sumy 100%
+    weights = np.clip(res.x, 0.0, 1.0)
+    weights = np.round(weights, 4)
+    weights = weights / np.sum(weights) 
+    
+    return weights
 
 def simulate_monte_carlo(portfolio_returns, days=252, simulations=1000):
-    """Generuje wiele ścieżek Monte Carlo zamiast jednej."""
     mean_ret = portfolio_returns.mean()
     std_ret = portfolio_returns.std()
     
-    # Symulacja na rozkładzie normalnym dla wielu ścieżek
-    simulated_paths = np.random.normal(mean_ret, std_ret, (days, simulations))
+    # Wzór Blacka-Scholesa z dryfem, żeby symulacja zachowywała się jak prawdziwa giełda
+    drift = mean_ret - (0.5 * std_ret**2)
+    
+    simulated_paths = np.random.normal(drift, std_ret, (days, simulations))
     price_paths = np.exp(np.cumsum(simulated_paths, axis=0))
     
-    # Zwracamy średnią, najgorszą (5%) i najlepszą (95%) ścieżkę
-    mean_path = np.mean(price_paths, axis=1)
-    worst_path = np.percentile(price_paths, 5, axis=1)
-    best_path = np.percentile(price_paths, 95, axis=1)
+    # Zaczynamy wykres od punktu 1.0 (Dzień 0)
+    start = np.ones((1, simulations))
+    price_paths = np.vstack([start, price_paths])
     
-    return mean_path, worst_path, best_path
-import numpy as np
-import pandas as pd
-from scipy.optimize import minimize
-
-def get_optimal_weights(returns: pd.DataFrame, strategy: str) -> np.ndarray:
-    """
-    Oblicza optymalne wagi portfela za pomocą minimalizacji funkcji kosztu.
-    """
-    num_assets = len(returns.columns)
-    mean_returns = returns.mean() * 252
-    cov_matrix = returns.cov() * 252
-
-    # Funkcje pomocnicze dla optymalizatora
-    def portfolio_performance(weights, mean_returns, cov_matrix):
-        p_ret = np.sum(mean_returns * weights)
-        p_vol = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
-        return p_vol, p_ret
-
-    def min_volatility_objective(weights, mean_returns, cov_matrix):
-        return portfolio_performance(weights, mean_returns, cov_matrix)[0]
-
-    def neg_sharpe_objective(weights, mean_returns, cov_matrix, risk_free=0):
-        p_vol, p_ret = portfolio_performance(weights, mean_returns, cov_matrix)
-        return -(p_ret - risk_free) / p_vol
-
-    def max_return_objective(weights, mean_returns, cov_matrix):
-        return -portfolio_performance(weights, mean_returns, cov_matrix)[1]
-
-    # Ograniczenia: suma wag musi wynosić 1 (100%), żadna waga nie może być ujemna (brak shortowania)
-    constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-    bounds = tuple((0.0, 1.0) for _ in range(num_assets))
-    init_guess = np.array(num_assets * [1. / num_assets])
-
-    # Wybór strategii
-    if strategy == 'min_vol':
-        result = minimize(min_volatility_objective, init_guess, args=(mean_returns, cov_matrix),
-                          method='SLSQP', bounds=bounds, constraints=constraints)
-    elif strategy == 'max_sharpe':
-        result = minimize(neg_sharpe_objective, init_guess, args=(mean_returns, cov_matrix),
-                          method='SLSQP', bounds=bounds, constraints=constraints)
-    else:  # max_return
-        result = minimize(max_return_objective, init_guess, args=(mean_returns, cov_matrix),
-                          method='SLSQP', bounds=bounds, constraints=constraints)
-
-    return result.x
-
-def simulate_monte_carlo(portfolio_returns, days=252, simulations=1000):
-    """Generuje wiele ścieżek Monte Carlo zamiast jednej."""
-    mean_ret = portfolio_returns.mean()
-    std_ret = portfolio_returns.std()
-    
-    # Symulacja na rozkładzie normalnym dla wielu ścieżek
-    simulated_paths = np.random.normal(mean_ret, std_ret, (days, simulations))
-    price_paths = np.exp(np.cumsum(simulated_paths, axis=0))
-    
-    # Zwracamy średnią, najgorszą (5%) i najlepszą (95%) ścieżkę
     mean_path = np.mean(price_paths, axis=1)
     worst_path = np.percentile(price_paths, 5, axis=1)
     best_path = np.percentile(price_paths, 95, axis=1)
