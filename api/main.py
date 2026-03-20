@@ -1,22 +1,15 @@
 from fastapi import FastAPI
-from api.routes import router as risk_router
+from api.routes import router
 
 app = FastAPI(
-    title="Quant Risk Management Engine",
-    description="professional api for financial risk modeling and stochastic simulations",
-    version="1.0.0"
+    title="QuantRisk Pro API",
+    description="Enterprise Risk Management Engine",
+    version="2.0"
 )
 
-# register application routes
-app.include_router(risk_router, prefix="/v1")
+# Podpięcie ścieżek z routes.py
+app.include_router(router)
 
 @app.get("/")
-async def health_check():
-    """
-    returns the operational status of the engine.
-    """
-    return {
-        "status": "ready",
-        "service": "quant-risk-engine",
-        "api_version": "1.0.0"
-    }
+def health_check():
+    return {"status": "System Operational", "service": "QuantRisk Engine API"}

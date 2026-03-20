@@ -1,60 +1,12 @@
 import numpy as np
+import pandas as pd
 from scipy.stats import chi2
+from typing import Dict, Union
 
-def kupiec_pof_test(returns, var_value, confidence_level=0.95):
+def run_full_backtest(returns: pd.Series, var_value: float, confidence_level: float = 0.95) -> Dict[str, Union[int, float, str]]:
     """
-    kupiec proportion of failures test.
-    null hypothesis: the model correctly estimates the number of violations.
+    Przeprowadza walidację modelu ryzyka (Testy Kupca i Christoffersena).
     """
-    n = len(returns)
-    alpha = 1 - confidence_level
-    # a violation occurs if return is worse (lower) than -VaR
-    x = sum(returns < -var_value)
-    
-    if x == 0: return {"p_value": 1.0, "status": "pass", "violations": 0}
-    
-    ratio = x / n
-    # likelihood ratio test
-    lr = -2 * ((n - x) * np.log(1 - alpha) + x * np.log(alpha) - 
-               (n - x) * np.log(1 - ratio) - x * np.log(ratio))
-    
-    p_value = 1 - chi2.cdf(lr, df=1)
-    
-    return {
-        "violations": int(x),
-        "expected_violations": round(n * alpha, 2),
-        "p_value": round(float(p_value), 4),
-        "status": "pass" if p_value > 0.05 else "fail"
-    }
-def christoffersen_test(returns, var_value):
-    """
-    tests independence of violations (no clustering).
-    """
-    hits = (returns < -var_value).astype(int).values
-    # transition matrix counts
-    n00 = n01 = n10 = n11 = 0
-    for i in range(len(hits)-1):
-        if hits[i] == 0 and hits[i+1] == 0: n00 += 1
-        elif hits[i] == 0 and hits[i+1] == 1: n01 += 1
-        elif hits[i] == 1 and hits[i+1] == 0: n10 += 1
-        else: n11 += 1
-    
-    try:
-        pi0 = n01 / (n00 + n01)
-        pi1 = n11 / (n10 + n11)
-        pi = (n01 + n11) / (n00 + n01 + n10 + n11)
-        
-        ln_null = (n00 + n10) * np.log(1 - pi) + (n01 + n11) * np.log(pi)
-        ln_alt = n00 * np.log(1 - pi0) + n01 * np.log(pi0) + n10 * np.log(1 - pi1) + n11 * np.log(pi1)
-        lr_ind = -2 * (ln_null - ln_alt)
-        p_val = 1 - chi2.cdf(lr_ind, df=1)
-        return round(p_val, 4)
-    except:
-        return 1.0 # default pass if not enough data
-    import numpy as np
-from scipy.stats import chi2
-
-def run_full_backtest(returns, var_value, confidence_level=0.95):
     n = len(returns)
     alpha = 1 - confidence_level
     hits = (returns < -var_value).astype(int)
@@ -62,31 +14,39 @@ def run_full_backtest(returns, var_value, confidence_level=0.95):
     
     # Kupiec POF Test
     ratio = x / n if x > 0 else 0.0001
-    lr_pof = -2 * ((n-x)*np.log(1-alpha) + x*np.log(alpha) - (n-x)*np.log(1-ratio) - x*np.log(ratio))
+    lr_pof = -2 * ((n - x) * np.log(1 - alpha) + x * np.log(alpha) - (n - x) * np.log(1 - ratio) - x * np.log(ratio))
     p_kupiec = 1 - chi2.cdf(lr_pof, df=1)
     
-    # Christoffersen Independence Test (simple version)
-    p_christ = 0.5 # default
+    # Christoffersen Independence Test
+    p_christ = 0.5 # default if test cannot be run
     if x > 1:
-        # matrix of transitions
         n00 = n01 = n10 = n11 = 0
-        for i in range(len(hits)-1):
-            if hits.iloc[i]==0 and hits.iloc[i+1]==0: n00+=1
-            elif hits.iloc[i]==0 and hits.iloc[i+1]==1: n01+=1
-            elif hits.iloc[i]==1 and hits.iloc[i+1]==0: n10+=1
-            else: n11+=1
+        hits_list = hits.tolist()
+        for i in range(len(hits_list) - 1):
+            if hits_list[i] == 0 and hits_list[i+1] == 0: n00 += 1
+            elif hits_list[i] == 0 and hits_list[i+1] == 1: n01 += 1
+            elif hits_list[i] == 1 and hits_list[i+1] == 0: n10 += 1
+            else: n11 += 1
+            
         try:
-            pi0, pi1 = n01/(n00+n01), n11/(n10+n11)
-            pi = (n01+n11)/n
-            ln_alt = n00*np.log(1-pi0)+n01*np.log(pi0)+n10*np.log(1-pi1)+n11*np.log(pi1)
-            ln_null = (n00+n10)*np.log(1-pi)+(n01+n11)*np.log(pi)
-            p_christ = 1 - chi2.cdf(-2*(ln_null-ln_alt), df=1)
-        except: pass
+            pi0 = n01 / (n00 + n01) if (n00 + n01) > 0 else 0
+            pi1 = n11 / (n10 + n11) if (n10 + n11) > 0 else 0
+            pi = (n01 + n11) / n
+            
+            # Unikamy logarytmu z zera
+            if 0 < pi < 1 and 0 < pi0 < 1 and 0 < pi1 < 1:
+                ln_alt = n00 * np.log(1 - pi0) + n01 * np.log(pi0) + n10 * np.log(1 - pi1) + n11 * np.log(pi1)
+                ln_null = (n00 + n10) * np.log(1 - pi) + (n01 + n11) * np.log(pi)
+                p_christ = 1 - chi2.cdf(-2 * (ln_null - ln_alt), df=1)
+        except Exception:
+            pass
+
+    status = "PASS" if p_kupiec > 0.05 else "FAIL"
 
     return {
         "violations": int(x),
-        "violation_ratio": round(float(x/(n*alpha)), 2),
+        "violation_ratio": round(float(x / (n * alpha)), 2) if n > 0 else 0.0,
         "kupiec_p": round(float(p_kupiec), 4),
         "christ_p": round(float(p_christ), 4),
-        "status": "PASS" if p_kupiec > 0.05 else "FAIL"
+        "status": status
     }

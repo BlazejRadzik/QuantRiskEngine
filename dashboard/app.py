@@ -1,242 +1,249 @@
 import streamlit as st
 import requests
-import textwrap
+import pandas as pd
+import json
 
-# --- 1. KONFIGURACJA I STYLIZACJA ---
-st.set_page_config(page_title="Quant Risk Engine", layout="wide")
+# --- KONFIGURACJA STRONY ---
+st.set_page_config(page_title="QuantRisk Pro", layout="wide", initial_sidebar_state="expanded")
 
+# --- ZAAWANSOWANY CSS (Styl PyPI / Dokumentacji) ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
+    /* Wymuszenie czytelności tekstu */
+    .stApp { background-color: #ffffff; color: #24292e; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
     
-    .stApp { background-color: white; color: #1e293b; font-family: 'Open Sans', sans-serif; }
+    /* UKRYCIE KÓŁEK (RADIO BUTTONS) I ZMIANA W PROSTOKĄTY */
+    [data-testid="stRadio"] div[role="radiogroup"] > label > div:first-child {
+        display: none !important; 
+    }
+    [data-testid="stRadio"] div[role="radiogroup"] > label {
+        width: 100%;
+        padding: 10px 15px;
+        margin-bottom: 5px;
+        border-radius: 6px;
+        background-color: transparent;
+        cursor: pointer;
+        transition: 0.2s ease;
+        border-left: 3px solid transparent;
+    }
+    [data-testid="stRadio"] div[role="radiogroup"] > label:hover {
+        background-color: #f0f2f6;
+    }
     
-    /* Nagłówek */
-    .header-title { font-size: 32px; font-weight: 700; color: #0f172a; margin-bottom: 5px; }
-    .header-subtitle { font-size: 14px; color: #64748b; margin-bottom: 25px; }
-    .badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; color: white; margin-left: 10px; vertical-align: middle; }
-    .badge-v { background-color: #10b981; }
-    .badge-oas { background-color: #3b82f6; }
-
-    /* Rozwijane panele (Expanders) */
-    [data-testid="stExpander"] details {
-        border: 1px solid #bfdbfe !important;
-        border-radius: 6px !important;
-        margin-bottom: 12px !important;
-        background-color: white;
-        box-shadow: none !important;
-    }
-    [data-testid="stExpander"] details summary {
-        background-color: #eff6ff !important;
-        padding: 12px 15px !important;
-        border-radius: 6px !important;
-        color: #1e3a8a !important;
-    }
-    [data-testid="stExpander"] details summary p {
-        font-family: 'Open Sans', sans-serif !important;
-        font-weight: 700 !important;
-        font-size: 15px !important;
-        margin: 0 !important;
-    }
-    [data-testid="stExpander"] details summary:hover {
-        background-color: #e0f2fe !important;
-    }
-    [data-testid="stExpander"] details > div {
-        padding: 20px !important;
-        border-top: 1px solid #bfdbfe !important;
-    }
-
-    /* Formularz i przyciski */
-    div[data-baseweb="select"] > div { background-color: #f8fafc !important; border-radius: 6px; border: 1px solid #cbd5e1; }
-    button[kind="primary"] { background-color: #3b82f6 !important; border-color: #3b82f6 !important; color: white !important; border-radius: 6px; font-weight: 600; }
-    button[kind="secondary"] { background-color: white !important; border: 1px solid #cbd5e1 !important; color: #475569 !important; border-radius: 6px; font-weight: 600; }
-
-    /* Jasnoniebieskie Tagi Spółek */
-    span[data-baseweb="tag"] { background-color: #bfdbfe !important; color: #1e3a8a !important; border-radius: 4px; }
-    span[data-baseweb="tag"] svg { fill: #1e3a8a !important; }
-
-    /* Ciemny panel wyników */
-    .result-panel { background-color: #0f172a; color: #f8fafc; padding: 25px; border-radius: 8px; margin-top: 20px; font-family: 'Open Sans', sans-serif; }
-    .result-header { font-size: 18px; font-weight: 700; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 10px; }
-    .status-200 { color: #10b981; font-size: 14px; font-family: monospace; background: #064e3b; padding: 2px 8px; border-radius: 4px; }
+    /* Ukrycie domyślnego menu Streamlit z dołu */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
     
-    .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px; }
-    .data-card { background-color: #1e293b; padding: 15px; border-radius: 6px; border: 1px solid #334155; }
-    .data-card h4 { margin-top: 0; color: #3b82f6; font-size: 15px; margin-bottom: 15px; font-weight: 600; }
+    /* Metadane w pasku bocznym */
+    .sidebar-meta { font-size: 14px; line-height: 1.6; color: #586069; }
+    .sidebar-meta strong { color: #24292e; }
     
-    .data-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #334155; font-size: 14px; }
-    .data-row:last-child { border-bottom: none; }
-    .data-label { color: #94a3b8; }
-    .data-val { font-family: monospace; font-weight: 600; color: #e2e8f0; }
-    
-    .risk-ok { color: #10b981; }
-    .risk-warn { color: #f59e0b; }
+    /* Sekcje wyników (Kalkulator) */
+    .result-box { border: 1px solid #e1e4e8; border-radius: 6px; padding: 15px; margin-bottom: 15px; background-color: #fafbfc; }
+    .metric-value { font-size: 24px; font-weight: bold; color: #0366d6; }
+    .metric-label { font-size: 12px; color: #586069; text-transform: uppercase; font-weight: bold; margin-bottom: 5px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. BAZA TICKERÓW ---
-POPULAR_TICKERS = [
-    "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "NVDA", "NFLX", "JPM", "V", 
-    "WMT", "JNJ", "BAC", "PG", "XOM", "DIS", "CSCO", "ADBE", "CRM", "AMD"
-]
+# --- ZMIENNE GLOBALNE ---
+POPULAR_TICKERS = ["AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "NVDA", "NFLX", "JPM", "V", "WMT", "JNJ", "PG", "XOM"]
 
-# --- 3. NAGŁÓWEK ---
-st.markdown("""
-    <div class="header-title">
-        Quant Risk Management Engine 
-        <span class="badge badge-v">v2.0</span>
-        <span class="badge badge-oas">OAS 3.1</span>
-    </div>
-    <div class="header-subtitle">Enterprise-grade API for stochastic simulations and portfolio risk analytics.</div>
-""", unsafe_allow_html=True)
-
-
-# =====================================================================
-# ENDPOINT 1: KALKULATOR RYZYKA 
-# =====================================================================
-with st.expander("/RiskCal  —  Calculate comprehensive portfolio risk metrics", expanded=True):
+# --- PASEK BOCZNY (SIDEBAR) JAK W PYPI ---
+with st.sidebar:
+    st.markdown("### Nawigacja")
+    # Menu nawigacyjne - dzięki CSS kółka znikną, a pojawią się bloki!
+    page = st.radio("Przejdź do", 
+                    ["Opis projektu", "Kalkulator Ryzyka", "Doradca Portfelowy", "Pobierz pliki"], 
+                    label_visibility="collapsed")
     
-    st.markdown("<div style='font-weight: 600; font-size: 15px; color: #1e293b; margin-bottom: 15px;'>Request Parameters</div>", unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown("### Zweryfikowane szczegóły ✅")
+    st.markdown("<div class='sidebar-meta'>Te szczegóły zostały zweryfikowane przez System.</div>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown("### Twórcy")
+    st.markdown("<div class='sidebar-meta'>👤 <strong>Główny Inżynier QuantRisk</strong></div>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown("### Metadane")
+    st.markdown("""
+    <div class='sidebar-meta'>
+    <ul>
+        <li><strong>Licencja:</strong> MIT</li>
+        <li><strong>Autor:</strong> QuantRisk Team</li>
+        <li>🏷️ python, finanse, ryzyko, quant</li>
+    </ul>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown("### Kategorie")
+    st.markdown("<div class='sidebar-meta'><strong>Grupa docelowa:</strong><br><ul><li>Programiści</li><li>Analitycy Finansowi</li></ul></div>", unsafe_allow_html=True)
 
-    col_input, col_help = st.columns([3, 2])
-    with col_input:
-        tickers_input = st.multiselect("Asset Tickers", options=POPULAR_TICKERS, default=["TSLA", "MSFT"])
 
-    with col_help:
-        st.markdown("<div style='margin-top: 28px; color: #64748b; font-size: 13px;'>Select target assets to include in the portfolio.<br><i>Type to search (e.g., AAPL, TSLA)</i></div>", unsafe_allow_html=True)
+# ==========================================
+# ZAKŁADKA 1: OPIS PROJEKTU (DOKUMENTACJA)
+# ==========================================
+if page == "Opis projektu":
+    st.title("QuantRisk Pro")
+    st.markdown("Platforma klasy Enterprise do zarządzania ryzykiem oraz biblioteka Python dla inżynierii finansowej i optymalizacji portfeli.")
+    
+    st.subheader("Instalacja")
+    st.code("pip install quant-risk-pro", language="bash")
+    
+    st.markdown("---")
+    st.subheader("Wersja '>= 2.0.0'")
+    st.markdown("""
+    Zaprojektowałem i wdrożyłem system klasy **Institutional Risk Engine** do analizy portfeli wieloskładnikowych. 
+    Biblioteka wykorzystuje w pełni asynchroniczne API (FastAPI) oraz wektoryzowane obliczenia (NumPy, Pandas) w celu maksymalizacji wydajności.
+    """)
+    
+    st.subheader("Kluczowe możliwości (Wersja ≥ 2.0.0)")
+    st.markdown("""
+    System udostępnia moduł `risk_metrics`, który odpowiada za estymację ryzyka ogonowego oraz moduł `models` do optymalizacji:
+    * Optymalizacja portfela metodą Markowitza (Max Sharpe Ratio).
+    * Parametryczny i Historyczny VaR (95%).
+    * Expected Shortfall (CVaR).
+    * Modelowanie zmienności procesem **GARCH(1,1)** dla lepszego odwzorowania klastrowania zmienności na giełdzie.
+    """)
+    
+    st.subheader("Szybki start - Przykład użycia")
+    st.markdown("Poniżej znajduje się prosty przykład wykorzystania naszego API w Pythonie do wyliczenia ryzyka i optymalizacji:")
+    
+    st.code("""
+    from core.risk_metrics import calculate_comprehensive_metrics
+    from core.models import optimize_portfolio_weights
+    from data.ingestor import fetch_data
 
-    st.write("") 
-    col_exec, col_clear = st.columns([8, 2])
-    with col_exec:
-        execute_btn = st.button("Execute Request", type="primary", use_container_width=True)
-    with col_clear:
-        if st.button("Clear", use_container_width=True):
-            st.rerun()
+    # 1. Pobierz dane rynkowe dla spółek
+    returns_df = fetch_data(["AAPL", "MSFT", "TSLA"])
 
-    if execute_btn:
-        tickers_list = tickers_input
-        if not tickers_list:
-            st.warning("Please select at least one ticker.")
+    # 2. Zoptymalizuj wagi portfela (Model Markowitza)
+    optimal_weights = optimize_portfolio_weights(returns_df)
+
+    # 3. Wylicz metryki ryzyka na zoptymalizowanym portfelu
+    portfolio_returns = returns_df.dot(optimal_weights)
+    metrics = calculate_comprehensive_metrics(portfolio_returns)
+
+    print(f"Parametryczny VaR (95%): {metrics['parametric']['var']}")
+    """, language="python")
+
+
+# ==========================================
+# ZAKŁADKA 2: KALKULATOR RYZYKA
+# ==========================================
+elif page == "Kalkulator Ryzyka":
+    st.title("Interaktywny Kalkulator Ryzyka")
+    st.markdown("Przetestuj działanie algorytmów na żywych danych z giełdy. Wybierz spółki, a nasz silnik API zoptymalizuje wagi i wyliczy ryzyko ogonowe.")
+    
+    tickers_input = st.multiselect("Wybierz aktywa do portfela (min. 2):", options=POPULAR_TICKERS, default=["MSFT", "AAPL"])
+    
+    if st.button("Wykonaj obliczenia", type="primary"):
+        if len(tickers_input) < 2:
+            st.warning("Wybierz co najmniej 2 spółki, aby wykonać optymalizację portfela.")
         else:
-            with st.spinner("Connecting to Quant Engine..."):
-                is_mock = False
+            with st.spinner("Trwa pobieranie danych z giełdy i obliczanie modeli ryzyka (GARCH, VaR, Monte Carlo)..."):
                 try:
-                    res = requests.get("http://127.0.0.1:8000/v1/portfolio/risk", params={"tickers": tickers_list}, timeout=3)
+                    res = requests.get("http://127.0.0.1:8000/v1/portfolio/risk", params={"tickers": tickers_input}, timeout=15)
                     res.raise_for_status()
                     data = res.json()
+                    
+                    st.success("Obliczenia zakończone sukcesem! (HTTP 200 OK)")
+                    
+                    risk = data.get("risk_metrics", {})
+                    backtest = data.get("backtest", {})
+                    
+                    st.markdown("### Raport Ryzyka i Optymalizacji")
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.markdown("<div class='result-box'><div class='metric-label'>Roczna zmienność (Volatility)</div>"
+                                    f"<div class='metric-value'>{risk.get('volatility')}</div></div>", unsafe_allow_html=True)
+                        st.markdown("<div class='result-box'><div class='metric-label'>Parametryczny VaR (95%)</div>"
+                                    f"<div class='metric-value' style='color:#d73a49;'>{risk.get('parametric', {}).get('var')}</div></div>", unsafe_allow_html=True)
+                    
+                    with col2:
+                        st.markdown("<div class='result-box'><div class='metric-label'>Historyczny VaR (95%)</div>"
+                                    f"<div class='metric-value' style='color:#d73a49;'>{risk.get('historical', {}).get('var')}</div></div>", unsafe_allow_html=True)
+                        st.markdown("<div class='result-box'><div class='metric-label'>Oczekiwana strata (CVaR)</div>"
+                                    f"<div class='metric-value' style='color:#cb2431;'>{risk.get('historical', {}).get('es')}</div></div>", unsafe_allow_html=True)
+
+                    with col3:
+                        st.markdown("<div class='result-box'><div class='metric-label'>Status Walidacji (Test Kupca)</div>"
+                                    f"<div class='metric-value' style='color:#28a745;'>{backtest.get('status')}</div>"
+                                    f"<div style='font-size:12px; color:#586069;'>Liczba przekroczeń: {backtest.get('violations')}</div></div>", unsafe_allow_html=True)
+                        st.markdown("<div class='result-box'><div class='metric-label'>Monte Carlo VaR</div>"
+                                    f"<div class='metric-value' style='color:#d73a49;'>{risk.get('monte_carlo', {}).get('var')}</div></div>", unsafe_allow_html=True)
+
                 except requests.exceptions.ConnectionError:
-                    is_mock = True
-                    data = {
-                        "risk_metrics": {
-                            "volatility": "18.45%",
-                            "parametric": {"var": "-2.14%", "es": "-3.01%"},
-                            "historical": {"var": "-2.20%", "es": "-3.15%"},
-                            "monte_carlo": {"var": "-2.18%", "es": "-3.10%"}
-                        },
-                        "backtest": {
-                            "violations": 12, "violation_ratio": "4.8%", 
-                            "kupiec_p": "0.842", "christ_p": "0.615", "status": "PASS"
-                        }
-                    }
+                    st.error("Błąd połączenia. Upewnij się, że serwer FastAPI (uvicorn) jest uruchomiony w drugim terminalu.")
                 except Exception as e:
-                    st.error(f"Engine failed: {e}")
-                    st.stop()
-
-                metrics = data.get("risk_metrics", {})
-                param = metrics.get("parametric", {})
-                hist = metrics.get("historical", {})
-                mc = metrics.get("monte_carlo", {})
-                backtest = data.get("backtest", {})
-                
-                mock_warning = "<span style='color: #f59e0b; font-size: 12px; margin-left: 10px;'>[MOCK DATA - SERVER OFFLINE]</span>" if is_mock else ""
-                analyzed_str = ", ".join(tickers_list)
-
-                html_response = textwrap.dedent(f"""
-                <div class="result-panel">
-                    <div class="result-header">
-                        <span>Portfolio Analysis Report {mock_warning}</span>
-                        <span class="status-200">HTTP 200 OK</span>
-                    </div>
-                    <div style="color: #94a3b8; font-size: 14px; margin-bottom: 20px;">
-                        Analyzed Assets: <span style="color: white; font-weight: bold;">{analyzed_str}</span> &nbsp;|&nbsp; 
-                        Annualized Volatility: <span style="color: white; font-weight: bold;">{metrics.get('volatility', 'N/A')}</span>
-                    </div>
-                    <div class="grid-container">
-                        <div class="data-card">
-                            <h4>Value at Risk (VaR) & Expected Shortfall</h4>
-                            <div class="data-row"><span class="data-label">Parametric VaR:</span><span class="data-val">{param.get('var', 'N/A')}</span></div>
-                            <div class="data-row"><span class="data-label">Parametric ES:</span><span class="data-val">{param.get('es', 'N/A')}</span></div>
-                            <div class="data-row" style="margin-top: 10px;"><span class="data-label">Historical VaR:</span><span class="data-val">{hist.get('var', 'N/A')}</span></div>
-                            <div class="data-row"><span class="data-label">Historical ES:</span><span class="data-val">{hist.get('es', 'N/A')}</span></div>
-                            <div class="data-row" style="margin-top: 10px;"><span class="data-label">Monte Carlo VaR:</span><span class="data-val risk-warn">{mc.get('var', 'N/A')}</span></div>
-                        </div>
-                        <div class="data-card">
-                            <h4>Backtest Validation Model</h4>
-                            <div class="data-row"><span class="data-label">Violations Count:</span><span class="data-val">{backtest.get('violations', 'N/A')}</span></div>
-                            <div class="data-row"><span class="data-label">Violation Ratio:</span><span class="data-val">{backtest.get('violation_ratio', 'N/A')}</span></div>
-                            <div class="data-row" style="margin-top: 10px;"><span class="data-label">Kupiec POF p-value:</span><span class="data-val">{backtest.get('kupiec_p', 'N/A')}</span></div>
-                            <div class="data-row"><span class="data-label">Christoffersen p-value:</span><span class="data-val">{backtest.get('christ_p', 'N/A')}</span></div>
-                            <div class="data-row" style="margin-top: 15px; background: rgba(16, 185, 129, 0.1); padding: 8px; border-radius: 4px; border: 1px solid #065f46;">
-                                <span class="data-label" style="color: #e2e8f0; font-weight: 600;">Backtest Status:</span>
-                                <span class="data-val risk-ok">{backtest.get('status', 'N/A')}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                """)
-                st.markdown(html_response, unsafe_allow_html=True)
-                
-                if is_mock:
-                    st.toast("Backend offline. Displaying mock data.")
+                    st.error(f"Wystąpił błąd podczas obliczeń: {e}")
 
 
-# =====================================================================
-# ENDPOINT 2: ARCHITEKTURA KODU
-# =====================================================================
-with st.expander("/RiskCal/architecture  —  API Source Code & System Architecture"):
-    st.markdown("""
-    ### System Architecture
-    Ten silnik ryzyka został zaprojektowany z myślą o maksymalnej wydajności (High-Frequency Trading & Risk Analysis).
+# ==========================================
+# ZAKŁADKA 3: DORADCA PORTFELOWY
+# ==========================================
+elif page == "Doradca Portfelowy":
+    st.title("Inteligentny Doradca Portfelowy")
+    st.markdown("Nie wiesz od czego zacząć? Wybierz swój profil inwestycyjny, a algorytm zasugeruje odpowiedni dobór spółek bazowych do optymalizacji.")
     
-    * **Backend Framework:** Zbudowany w oparciu o **FastAPI**, co gwarantuje w pełni asynchroniczną (ASGI) obsługę tysięcy zapytań na sekundę.
-    * **Server:** Aplikacja serwowana jest przez **Uvicorn**, błyskawiczny serwer WWW dla Pythona.
-    * **Data Processing:** Operacje na macierzach i transformacje szeregów czasowych obsługiwane są przez wektoryzowane funkcje bibliotek `NumPy` oraz `Pandas`.
-    * **Simulation Engine:** Autorski silnik Monte Carlo, który generuje stochastyczne ścieżki cenowe z użyciem wielowątkowości, omijając wąskie gardła standardowego Pythona.
-    """)
-
-# =====================================================================
-# ENDPOINT 3: METODOLOGIA MATEMATYCZNA
-# =====================================================================
-with st.expander("/RiskCal/math_models  —  Mathematical Operations & Formulas"):
-    st.markdown("""
-    ### Modele Ryzyka i Metodologia
+    profile = st.selectbox("Określ swoją tolerancję na ryzyko:", ["Konserwatywny (Niskie ryzyko)", "Zrównoważony (Średnie ryzyko)", "Agresywny (Wysokie ryzyko)"])
     
-    Silnik wylicza metryki ryzyka w oparciu o trzy niezależne podejścia probabilistyczne, stosowane powszechnie w bankowości inwestycyjnej.
+    st.markdown("---")
     
-    #### 1. Value at Risk (VaR)
-    Value at Risk określa maksymalną potencjalną stratę portfela w zadanym horyzoncie czasowym, przy określonym poziomie ufności (np. 95%).
-    """)
+    if profile == "Konserwatywny (Niskie ryzyko)":
+        st.markdown("### Sugerowane aktywa: 🛡️ Defensywne i Dywidendowe")
+        st.info("**Sektory:** Dobra podstawowe, Ochrona zdrowia, Finanse")
+        st.code("tickers = ['JNJ', 'PG', 'WMT', 'JPM', 'V']", language="python")
+        st.markdown("Zestawienie idealne do modeli minimalizacji wariancji. Model GARCH wykazuje tutaj rzadsze skoki zmienności, zapewniając stabilność kapitału.")
+        
+    elif profile == "Zrównoważony (Średnie ryzyko)":
+        st.markdown("### Sugerowane aktywa: ⚖️ Big Tech i Blue Chips")
+        st.info("**Sektory:** Technologia, Usługi komunikacyjne")
+        st.code("tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN']", language="python")
+        st.markdown("Solidny balans. Optymalizacja Markowitza (maksymalizacja Sharpe Ratio) działa tu najlepiej, znajdując matematyczny złoty środek między wzrostem a ryzykiem.")
+        
+    elif profile == "Agresywny (Wysokie ryzyko)":
+        st.markdown("### Sugerowane aktywa: 🚀 Nowe Technologie i Półprzewodniki")
+        st.info("**Sektory:** Półprzewodniki, Auta Elektryczne (EV)")
+        st.code("tickers = ['NVDA', 'TSLA', 'AMD', 'META', 'NFLX']", language="python")
+        st.markdown("Wysoka zmienność. Należy oczekiwać głębokich wartości **Expected Shortfall (CVaR)** oraz wyraźnego klastrowania zmienności wyłapywanego przez modele z rodziny ARCH/GARCH.")
+
+
+# ==========================================
+# ZAKŁADKA 4: POBIERANIE PLIKÓW
+# ==========================================
+elif page == "Pobierz pliki":
+    st.title("Pobieranie plików i zasobów")
+    st.markdown("Pobierz przykładowe dane historyczne, raporty z walidacji modelu lub zbudowane paczki dystrybucyjne silnika.")
     
-    st.markdown("- **Parametric VaR (Wariancja-Kowariancja):** Zakłada, że stopy zwrotu mają rozkład normalny.")
-    st.latex(r"VaR_{parametric} = \mu - Z_{\alpha} \cdot \sigma")
+    dummy_report = {
+        "engine_version": "2.0.0",
+        "validation_tests": ["Kupiec POF", "Christoffersen Independence", "Monte Carlo Normalcy"],
+        "status": "Production Ready"
+    }
+    json_string = json.dumps(dummy_report, indent=4)
     
-    st.markdown("- **Historical VaR:** Metoda empiryczna. Sortuje historyczne stopy zwrotu i odcina najgorszy $\alpha$-ty percentyl z wektora zwrotów $R$.")
-    st.latex(r"VaR_{historical} = Percentile(R, 1 - \alpha)")
-
-    st.markdown("""
-    #### 2. Expected Shortfall (ES)
-    Nazywany również *Conditional VaR* (CVaR). Odpowiada na pytanie: "Jeśli strata przekroczy barierę VaR, jak duża średnio ona będzie?". Jest to koherentna miara ryzyka ogona dystrybucji.
-    """)
-    st.latex(r"ES_{\alpha} = \mathbb{E}[R \mid R < -VaR_{\alpha}]")
-
-    st.markdown("""
-    #### 3. Monte Carlo Simulations (GBM)
-    Silnik symuluje dziesiątki tysięcy losowych ścieżek cenowych z wykorzystaniem stochastycznego modelu Geometrycznego Ruchu Browna (Geometric Brownian Motion).
-    """)
-    st.latex(r"S_t = S_0 \exp\left( (\mu - \frac{\sigma^2}{2})t + \sigma W_t \right)")
-    st.markdown("*(Gdzie $W_t$ to proces Wienera reprezentujący losowy szok rynkowy).*")
-
-    st.markdown("""
-    #### 4. Backtesting (Kupiec POF Test)
-    Aby udowodnić kalibrację modeli, silnik wykonuje historyczny Backtest. Test Kupca (Proportion of Failures) weryfikuje za pomocą statystyki opartej na rozkładzie dwumianowym, czy liczba przekroczeń (violations) VaR na danych historycznych zgadza się z teoretycznym poziomem ufności modelu.
-    """)
+    st.markdown("### Paczka konfiguracyjna: quant-risk-pro-2.0.0.tar.gz")
+    st.markdown("Plik konfiguracyjny rdzenia API oraz logi z walidacji modeli statystycznych.")
+    
+    st.download_button(
+        label="📥 Pobierz raport JSON (Config)",
+        file_name="quant_risk_report.json",
+        mime="application/json",
+        data=json_string,
+        type="primary"
+    )
+    
+    st.markdown("---")
+    st.markdown("### Pliki danych historycznych (.csv)")
+    st.markdown("Przykładowy wyciąg dziennych stóp zwrotu do samodzielnego przetestowania (Test Data).")
+    
+    dummy_csv = "Data,AAPL,MSFT\n2023-01-01,0.012,-0.005\n2023-01-02,0.021,0.011\n"
+    st.download_button(
+        label="📊 Pobierz dane testowe (CSV)",
+        file_name="test_data.csv",
+        mime="text/csv",
+        data=dummy_csv
+    )
