@@ -10,7 +10,7 @@ import json
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
-import yfinance as yf  # <--- NOWA BIBLIOTEKA DO POBIERANIA DANYCH DO CSV
+import yfinance as yf  # <--- BIBLIOTEKA DO POBIERANIA DANYCH DO CSV
 
 # --- KONFIGURACJA STRONY ---
 st.set_page_config(page_title="Kalkulator Ryzyka Inwestycyjnego", layout="wide", initial_sidebar_state="expanded")
@@ -172,10 +172,10 @@ elif page == "Kalkulator Ryzyka":
             etf_tickers = ETF_CONSTITUENTS[selected_etf]
             st.info(f"**Skład {selected_etf}:** {', '.join(etf_tickers)}")
             
-            # Przycisk dodający spółki
-            if st.button(f"➕ Dodaj wszystkie akcje z {selected_etf.split(' ')[0]}"):
+            # Przycisk dodający spółki (zabezpieczony żeby nie przekroczyć 12)
+            if st.button(f"➕ Dodaj akcje z {selected_etf.split(' ')[0]}"):
                 for t in etf_tickers:
-                    if t not in st.session_state.selected_tickers:
+                    if t not in st.session_state.selected_tickers and len(st.session_state.selected_tickers) < 12:
                         st.session_state.selected_tickers.append(t)
                 st.rerun()
     
@@ -186,24 +186,25 @@ elif page == "Kalkulator Ryzyka":
             st.session_state.selected_tickers = st.session_state.ms_tickers
             
         st.multiselect(
-            "Wpisz ticker (np. AAPL) lub wybierz z listy (ponad 10k dostępnych):", 
+            "Wpisz ticker (np. AAPL) lub wybierz z listy (Limit: max 12 spółek dla stabilności serwera):", 
             options=ALL_TICKERS, 
             default=st.session_state.selected_tickers,
             key="ms_tickers",
-            on_change=update_tickers
+            on_change=update_tickers,
+            max_selections=12  # <--- BLOKADA ABY NIE WYWALAŁO TIMEOUTU
         )
         st.caption(f"Wybrano: {len(st.session_state.selected_tickers)} aktywów")
 
     st.markdown("---")
     
-    # ORYGINALNA LOGIKA I WYGLĄD Z PIERWSZEJ POPRAWKI
     if st.button("Wykonaj analizę portfela", type="primary"):
         if len(st.session_state.selected_tickers) < 2:
             st.warning("Wybierz co najmniej 2 spółki, aby wykonać optymalizację portfela.")
         else:
-            with st.spinner("Trwa pobieranie danych giełdowych i symulacja scenariuszy strat (to może potrwać kilka sekund)..."):
+            with st.spinner("Trwa pobieranie danych giełdowych i symulacja scenariuszy strat (to może potrwać do minuty)..."):
                 try:
-                    res = requests.get("https://quantriskengine.onrender.com/v1/portfolio/risk", params={"tickers": st.session_state.selected_tickers}, timeout=15)
+                    # <--- WYDŁUŻAMY TIMEOUT Z 15 do 90 SEKUND
+                    res = requests.get("https://quantriskengine.onrender.com/v1/portfolio/risk", params={"tickers": st.session_state.selected_tickers}, timeout=90)
                     res.raise_for_status()
                     data = res.json()
                     
@@ -215,7 +216,6 @@ elif page == "Kalkulator Ryzyka":
                     st.markdown("### Szczegółowy Raport Ryzyka")
                     st.markdown("Poniżej znajdziesz wyniki wskaźników z opisem, jak wpływają na Twoje pieniądze.")
                     
-                    # Funkcja pomocnicza z pierwszej poprawki
                     def get_eval_html(val_str, threshold_good, threshold_bad):
                         if val_str in ['N/A', None, '']: return "<span style='color: gray;'>Brak danych do analizy</span>"
                         try:
@@ -234,7 +234,7 @@ elif page == "Kalkulator Ryzyka":
 
                     st.markdown("---")
                     
-                    # 1. ZMIENNOŚĆ (Dokładnie ten sam pionowy układ!)
+                    # 1. ZMIENNOŚĆ 
                     v_vol = risk.get('volatility', 'N/A')
                     c_box, c_desc = st.columns([1, 2.5])
                     with c_box:
@@ -302,6 +302,8 @@ elif page == "Kalkulator Ryzyka":
                                     "**Jak to wpływa na portfel?** Buduje zaufanie do powyższych metryk. Zbyt wiele 'pomyłek' (przekroczeń strat) oznacza, że rynek staje się zbyt dziki i modelom przestaje ufać.<br>"
                                     f"**Twoja ocena:** <span style='color: {'#28a745' if 'Pass' in str(v_status) or 'Ready' in str(v_status) or 'OK' in str(v_status) else '#586069'}; font-weight: bold;'>{v_status}</span>", unsafe_allow_html=True)
 
+                except requests.exceptions.ReadTimeout:
+                    st.error("Błąd: Serwer potrzebował zbyt dużo czasu na przeliczenie tak dużej ilości danych. Zmniejsz liczbę aktywów i spróbuj ponownie.")
                 except requests.exceptions.ConnectionError:
                     st.error("Błąd połączenia z API na serwerze (np. na Render). Serwer może być w trybie uśpienia. Poczekaj 50s i spróbuj ponownie.")
                 except Exception as e:
@@ -309,7 +311,7 @@ elif page == "Kalkulator Ryzyka":
 
 
 # ==========================================
-# ZAKŁADKA 3: DORADCA PORTFELOWY (PEŁNA ZACHOWANA ORYGINALNA WERSJA)
+# ZAKŁADKA 3: DORADCA PORTFELOWY 
 # ==========================================
 elif page == "Doradca Portfelowy":
     st.title("Inteligentny Doradca Portfelowy")
@@ -320,7 +322,6 @@ elif page == "Doradca Portfelowy":
     
     st.markdown("---")
     
-    # Konfiguracja doradcy
     config = {
         "Konserwatywny (Niskie ryzyko)": {
             "tickers": ["JNJ", "PG", "WMT", "JPM", "V"],
@@ -328,7 +329,7 @@ elif page == "Doradca Portfelowy":
             "desc": "Zestawienie idealne do minimalizacji wahań. Wybrano spółki o stabilnych dywidendach i silnej pozycji rynkowej.",
             "method": "Global Minimum Variance (GMV)",
             "code_logic": "weights = min_variance_optimizer(returns_cov_matrix)",
-            "drift": 0.0002 # symulacja dla wykresu
+            "drift": 0.0002
         },
         "Zrównoważony (Średnie ryzyko)": {
             "tickers": ["AAPL", "MSFT", "GOOGL", "AMZN"],
@@ -360,7 +361,6 @@ elif page == "Doradca Portfelowy":
         st.code(current['code_logic'], language="python")
         
     with col_chart:
-        # Wykres kołowy alokacji
         fig_pie = px.pie(names=current['tickers'], values=current['weights'], 
                          title="Sugerowana budowa portfela", hole=0.4,
                          color_discrete_sequence=px.colors.sequential.RdBu)
@@ -369,7 +369,6 @@ elif page == "Doradca Portfelowy":
 
     st.markdown("---")
     
-    # --- KALKULATOR ZAKUPÓW ---
     st.subheader("💰 Kalkulator wielkości pozycji")
     c1, c2, c3 = st.columns([1, 1, 2])
     with c1:
@@ -378,7 +377,6 @@ elif page == "Doradca Portfelowy":
         kwota = st.number_input(f"Kwota inwestycji ({waluta}):", min_value=1000, value=10000, step=500)
     with c3:
         st.markdown(f"**Sugerowany podział dla {kwota} {waluta}:**")
-        # Wyświetlenie metrów dla każdej spółki
         cols = st.columns(len(current['tickers']))
         for i, t in enumerate(current['tickers']):
             pos_val = kwota * current['weights'][i]
@@ -386,13 +384,11 @@ elif page == "Doradca Portfelowy":
 
     st.markdown("---")
 
-    # --- WYKRES PROGNOZY ---
     st.subheader("📈 Prognoza wzrostu (Symulacja Komputerowa)")
     st.markdown("Potencjalne zachowanie Twojego kapitału w ciągu najbliższych 252 dni handlowych (1 rok).")
     
     np.random.seed(42)
     days = 252
-    # Generowanie ścieżki random walk na bazie profilu
     returns = np.random.normal(current['drift'], 0.012, days)
     price_path = np.exp(np.cumsum(returns))
     
@@ -405,7 +401,7 @@ elif page == "Doradca Portfelowy":
 
 
 # ==========================================
-# ZAKŁADKA 4: POBIERANIE PLIKÓW (DYNAMICZNE CSV ZA POMOCĄ YFINANCE)
+# ZAKŁADKA 4: POBIERANIE PLIKÓW 
 # ==========================================
 elif page == "Pobierz pliki":
     st.title("Pobieranie plików i zasobów")
@@ -420,16 +416,26 @@ elif page == "Pobierz pliki":
         if len(st.session_state.selected_tickers) > 0:
             with st.spinner("Łączenie z rynkiem finansowym i generowanie arkusza..."):
                 try:
-                    # Pobieramy dane z Yahoo Finance na żywo (ostatni rok)
-                    raw_data = yf.download(st.session_state.selected_tickers, period="1y")['Adj Close']
-                    # Zabezpieczenie przed błędem z 1 tickerem
-                    if isinstance(raw_data, pd.Series):
-                        raw_data = raw_data.to_frame(name=st.session_state.selected_tickers[0])
-                        
-                    # Obliczamy dzienne stopy zwrotu (pct_change)
-                    returns_df = raw_data.pct_change().dropna()
+                    # <--- NAPRAWIONA LOGIKA POBIERANIA ABY PLIK ZAWSZE MIAŁ DANE
+                    data = yf.download(st.session_state.selected_tickers, period="1y", progress=False)
                     
-                    # Konwersja DataFrame do pliku CSV
+                    if 'Adj Close' in data:
+                        prices = data['Adj Close']
+                    elif 'Close' in data:
+                        prices = data['Close']
+                    else:
+                        raise ValueError("Brak odpowiednich danych cenowych w odpowiedzi z giełdy.")
+
+                    # Zabezpieczenie na wypadek wyboru tylko 1 spółki
+                    if isinstance(prices, pd.Series):
+                        prices = prices.to_frame(name=st.session_state.selected_tickers[0])
+                        
+                    # Wyliczenie procentowych stóp zwrotu (wymagane w analizie ryzyka)
+                    returns_df = prices.pct_change().dropna()
+                    
+                    if returns_df.empty:
+                        raise ValueError("Zwrócono puste dane. Sprawdź poprawność tickerów.")
+                    
                     csv = returns_df.to_csv(index=True).encode('utf-8')
                     
                     st.success("Dane pobrane poprawnie! Arkusz jest gotowy do zapisu.")
@@ -440,7 +446,7 @@ elif page == "Pobierz pliki":
                         data=csv
                     )
                 except Exception as e:
-                    st.error(f"Nie udało się pobrać danych: {e}. Upewnij się, że tickery są poprawne.")
+                    st.error(f"Nie udało się wygenerować danych: {e}. Spróbuj wybrać inne aktywa.")
         else:
             st.warning("Najpierw musisz dodać jakieś akcje w zakładce Kalkulator Ryzyka!")
     
