@@ -236,16 +236,18 @@ elif page == "Kalkulator Ryzyka":
                     st.markdown("### Szczegółowy Raport Ryzyka")
                     st.markdown("Poniżej znajdziesz wyniki wskaźników z opisem, jak wpływają na Twoje pieniądze.")
                     
+                    # Zmień progi w get_eval_html na bardziej "rynkowe" dla akcji (Equity)
                     def get_eval_html(val_str, threshold_good, threshold_bad):
                         try:
                             v = float(str(val_str).replace('%', '').strip())
                             v = abs(v)
+                            # Volatility: <15% (Low), 15-30% (Moderate), >30% (High) - standard dla S&P500 vs Tech
                             if v <= threshold_good:
-                                return f"<span style='color: #28a745; font-weight: bold;'>{val_str} - Low Risk</span>"
+                                return f"<span style='color: #28a745; font-weight: bold;'>{val_str} - Konserwatywny</span>"
                             elif v >= threshold_bad:
-                                return f"<span style='color: #d73a49; font-weight: bold;'>{val_str} - High Risk</span>"
+                                return f"<span style='color: #d73a49; font-weight: bold;'>{val_str} - Agresywny</span>"
                             else:
-                                return f"<span style='color: #b08800; font-weight: bold;'>{val_str} - Moderate Risk</span>"
+                                return f"<span style='color: #b08800; font-weight: bold;'>{val_str} - Zrównoważony</span>"
                         except:
                             return f"<span style='color: gray;'>{val_str}</span>"
 

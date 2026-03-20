@@ -1,47 +1,53 @@
 import numpy as np
 import pandas as pd
 
+import numpy as np
+import pandas as pd
+from scipy.optimize import minimize
+
 def get_optimal_weights(returns: pd.DataFrame, strategy: str) -> list:
     num_assets = len(returns.columns)
     mean_returns = returns.mean() * 252
     cov_matrix = returns.cov() * 252
+    
+    # 1. Funkcje celu (to co minimalizujemy)
+    def portfolio_volatility(weights):
+        return np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
 
-    # Wymuszamy dywersyfikację: min 5%, max 45% (jeśli jest >=3 spółek)
-    if num_assets >= 3:
-        min_w, max_w = 0.05, 0.45
-    else:
-        min_w, max_w = 0.05, 0.95
+    def negative_sharpe(weights):
+        p_ret = np.dot(weights, mean_returns)
+        p_vol = portfolio_volatility(weights)
+        return -p_ret / p_vol  # Minimalizujemy ujemny Sharpe = Maksymalizujemy dodatni
 
-    # GWARANCJA STABILNOŚCI: Zamiast zawodnego Scipy używamy siatki Monte Carlo.
-    np.random.seed(42)
-    # Generujemy 100 000 kombinacji wag w ułamku sekundy
-    random_w = np.random.uniform(min_w, max_w, (100000, num_assets))
-    random_w = random_w / random_w.sum(axis=1, keepdims=True)
+    def negative_return(weights):
+        return -np.dot(weights, mean_returns)
+
+    # 2. Ograniczenia i granice (Constraints & Bounds)
+    constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1}) # Suma wag = 100%
     
-    # Zostawiamy TYLKO te portfele, które rygorystycznie trzymają się limitów (żadnego 100%!)
-    valid_indices = np.where((random_w >= min_w).all(axis=1) & (random_w <= max_w).all(axis=1))[0]
+    # Dynamiczne granice: min 5%, max 45% (zabezpiecza przed ładowaniem wszystkiego w jedną spółkę)
+    bound_val = (0.05, 0.45) if num_assets >= 3 else (0.05, 0.95)
+    bounds = tuple(bound_val for _ in range(num_assets))
     
-    if len(valid_indices) == 0:
-        return [1.0 / num_assets] * num_assets
-        
-    valid_w = random_w[valid_indices]
-    
-    # Obliczamy zysk i ryzyko dla poprawnych portfeli
-    port_returns = valid_w.dot(mean_returns.values)
-    port_vols = np.sqrt(np.einsum('ij,ji->i', valid_w.dot(cov_matrix.values), valid_w.T))
-    
-    # Wybieramy zwycięzcę
+    # Startujemy od równego podziału
+    init_guess = num_assets * [1. / num_assets]
+
+    # 3. Wybór strategii
     if strategy == 'min_vol':
-        best_idx = np.argmin(port_vols)
+        target_func = portfolio_volatility
     elif strategy == 'max_sharpe':
-        best_idx = np.argmax(port_returns / port_vols)
+        target_func = negative_sharpe
     else:  # max_return
-        best_idx = np.argmax(port_returns)
-        
-    best_weights = valid_w[best_idx]
-    
-    # Docięcie do 4 miejsc po przecinku, żeby wykres Plotly nigdy nie zwariował
-    return np.round(best_weights, 4).tolist()
+        target_func = negative_return
+
+    # 4. Optymalizacja
+    result = minimize(target_func, init_guess, method='SLSQP', bounds=bounds, constraints=constraints)
+
+    if not result.success:
+        # Fallback na równe wagi, jeśli solver zawiedzie
+        return np.round(init_guess, 4).tolist()
+
+    return np.round(result.x, 4).tolist()
 
 
 def simulate_monte_carlo(portfolio_returns, days=252, simulations=1000):
