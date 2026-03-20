@@ -13,7 +13,7 @@ import json
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
-import yfinance as yf  # <--- BIBLIOTEKA DO POBIERANIA DANYCH DO CSV
+import yfinance as yf
 
 @st.cache_data(ttl=3600)
 def load_data(tickers):
@@ -179,11 +179,17 @@ elif page == "Kalkulator Ryzyka":
             etf_tickers = ETF_CONSTITUENTS[selected_etf]
             st.info(f"**Skład {selected_etf}:** {', '.join(etf_tickers)}")
             
-            # Przycisk dodający spółki (zabezpieczony żeby nie przekroczyć 12)
+            # Przycisk dodający spółki
             if st.button(f"➕ Dodaj akcje z {selected_etf.split(' ')[0]}"):
+                current_list = st.session_state.get("ms_tickers", st.session_state.selected_tickers)
+                new_list = list(current_list)
+                
                 for t in etf_tickers:
-                    if t not in st.session_state.selected_tickers and len(st.session_state.selected_tickers) < 12:
-                        st.session_state.selected_tickers.append(t)
+                    if t not in new_list and len(new_list) < 12:
+                        new_list.append(t)
+                        
+                st.session_state.selected_tickers = new_list
+                st.session_state.ms_tickers = new_list
                 st.rerun()
     
     with col_search:
@@ -198,7 +204,7 @@ elif page == "Kalkulator Ryzyka":
             default=st.session_state.selected_tickers,
             key="ms_tickers",
             on_change=update_tickers,
-            max_selections=12  # <--- BLOKADA ABY NIE WYWALAŁO TIMEOUTU
+            max_selections=12
         )
         st.caption(f"Wybrano: {len(st.session_state.selected_tickers)} aktywów")
 
@@ -210,7 +216,6 @@ elif page == "Kalkulator Ryzyka":
         else:
             with st.spinner("Trwa pobieranie danych giełdowych i symulacja scenariuszy strat (to może potrwać do półtorej minuty, w przypadku błędu spróbuj ponownie)..."):
                 try:
-                    # <--- WYDŁUŻAMY TIMEOUT Z 15 do 90 SEKUND
                     res = requests.get("https://quantriskengine.onrender.com/v1/portfolio/risk", params={"tickers": st.session_state.selected_tickers}, timeout=90)
                     res.raise_for_status()
                     data = res.json()
@@ -293,18 +298,29 @@ elif page == "Kalkulator Ryzyka":
                                     "**Jak to wpływa na portfel?** Daje bardzo wiarygodny ogląd, ponieważ uwzględnia ścieżki rozwoju, które mogły się jeszcze nigdy historycznie nie wydarzyć.<br>"
                                     f"**Twoja ocena:** {get_eval_html(v_mcvar, 4, 8)}", unsafe_allow_html=True)
 
-                    # 6. STATUS WALIDACJI (TEST KUPCA)
+                    # 6. STATUS WALIDACJI (TEST KUPCA) - Z filtrem logicznym
                     v_status = backtest.get('status', 'N/A')
-                    v_viol = backtest.get('violations', 'N/A')
+                    v_viol = backtest.get('violations', 0)
+                    
+                    # Logika oceniająca - nie ufamy ślepo API!
+                    try:
+                        viol_count = int(v_viol)
+                        if viol_count > 16:
+                            v_status = "Odrzucony (Model nie trzyma ryzyka)"
+                            status_color = "#d73a49" # Czerwony
+                        else:
+                            status_color = "#28a745" if "Pass" in str(v_status) else "#b08800"
+                    except:
+                        status_color = "#586069" # Szary błąd
+
                     c_box, c_desc = st.columns([1, 2.5])
                     with c_box:
                         st.markdown("<div class='result-box'><div class='metric-label'>Wiarygodność modelu (Test Kupca)</div>"
-                                    f"<div class='metric-value' style='color:#0366d6;'>{v_status}</div>"
-                                    f"<div style='font-size:12px; color:#586069;'>Liczba pomyłek: {v_viol}</div></div>", unsafe_allow_html=True)
+                                    f"<div class='metric-value' style='color:{status_color}; font-size:18px;'>{v_status}</div>"
+                                    f"<div style='font-size:12px; color:#586069; margin-top:5px;'>Przekroczenia straty (Pomyłki): {v_viol}</div></div>", unsafe_allow_html=True)
                     with c_desc:
-                        st.markdown("**Co to znaczy?** Komputer cofa się w czasie i sprawdza, czy przewidziane ryzyko faktycznie ochroniło kapitał przed stratami.<br>"
-                                    "**Jak to wpływa na portfel?** Buduje zaufanie do powyższych metryk. Zbyt wiele 'pomyłek' (przekroczeń strat) oznacza, że rynek staje się zbyt dziki i modelom przestaje ufać.<br>"
-                                    f"**Twoja ocena:** <span style='color: {'#28a745' if 'Pass' in str(v_status) or 'Ready' in str(v_status) or 'OK' in str(v_status) else '#586069'}; font-weight: bold;'>{v_status}</span>", unsafe_allow_html=True)
+                        st.markdown("**Co to znaczy?** Komputer cofa się w czasie i sprawdza, czy przewidziane ryzyko faktycznie ochroniło kapitał.<br>"
+                                    "**Jak to wpływa na portfel?** Limit pomyłek dla 1 roku wynosi około 12-16. Jeśli liczba 'pomyłek' jest wyższa, model zawiódł w przeszłości i nie wolno mu ufać.<br>", unsafe_allow_html=True)
 
                 except requests.exceptions.ReadTimeout:
                     st.error("Błąd: Serwer potrzebował zbyt dużo czasu na przeliczenie tak dużej ilości danych. Zmniejsz liczbę aktywów i spróbuj ponownie.")
