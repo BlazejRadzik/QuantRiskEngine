@@ -382,6 +382,13 @@ elif page == "Doradca Portfelowy":
             if 'Adj Close' in data: prices = data['Adj Close']
             else: prices = data['Close']
             
+            # PANCERNA NAPRAWA: YFinance sortuje tabele alfabetycznie! 
+            # Wymuszamy naszą kolejność zdefiniowaną w profilu ryzyka
+            if isinstance(prices, pd.Series):
+                prices = prices.to_frame(name=tickers[0])
+            else:
+                prices = prices[tickers] 
+            
             # Przygotowanie danych
             returns = prices.pct_change().dropna()
             
@@ -435,8 +442,8 @@ elif page == "Doradca Portfelowy":
         cols = st.columns(len(tickers))
         for i, t in enumerate(tickers):
             pos_val = kwota * current_weights[i]
-            # NAPRAWIONE: Użycie round() by nie "gubił" resztek procentów z kapitału
-            cols[i].metric(t, f"{round(current_weights[i]*100)}%", f"{round(pos_val, 2)} {waluta}")
+            # Używamy formatowania do 1 miejsca po przecinku, by zgadzało się ze sztywnymi ramami modelu
+            cols[i].metric(t, f"{current_weights[i]*100:.1f}%", f"{round(pos_val, 2)} {waluta}")
 
     st.markdown("---")
 
@@ -446,9 +453,9 @@ elif page == "Doradca Portfelowy":
     # NAPRAWIONE: Wielościeżkowa symulacja z backendu
     mean_path, worst_path, best_path = simulate_monte_carlo(port_returns)
     
-    # Obliczanie maksymalnego osunięcia (Drawdown) na podstawie uśrednionej ścieżki
-    cum_max = np.maximum.accumulate(mean_path)
-    drawdown = (mean_path - cum_max) / cum_max
+    # PRAWIDŁOWY DRAWDOWN: Liczony z pesymistycznej ścieżki (najgorszy przypadek), a nie z rosnącej średniej!
+    cum_max = np.maximum.accumulate(worst_path)
+    drawdown = (worst_path - cum_max) / cum_max
     max_drawdown = drawdown.min()
     
     fig_line = go.Figure()
