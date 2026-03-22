@@ -1,15 +1,12 @@
+# api/main.py
 from fastapi import FastAPI
 from api.routes import router
 
-app = FastAPI(
-    title="QuantRisk Pro API",
-    description="Enterprise Risk Management Engine",
-    version="2.0"
-)
+app = FastAPI(title="QuantRisk Engine API")
 
-# Podpięcie ścieżek z routes.py
-app.include_router(router)
+# To jest kluczowa linijka, której prawdopodobnie brakuje:
+app.include_router(router, prefix="/v1")
 
 @app.get("/")
-def health_check():
-    return {"status": "System Operational", "service": "QuantRisk Engine API"}
+def read_root():
+    return {"status": "QuantRisk Engine is Online"}

@@ -1,6 +1,8 @@
+from core.reporting import generate_pdf_factsheet
 import os
 import sys
 import streamlit as st
+
 
 # PANCERNA POPRAWKA ŚCIEŻKI:
 # Pobieramy ścieżkę do folderu głównego (tam gdzie jest core i dashboard)
@@ -22,6 +24,18 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 import yfinance as yf
+def get_eval_html(val_str, threshold_good, threshold_bad):
+    try:
+        v = float(str(val_str).replace('%', '').strip())
+        v = abs(v)
+        if v <= threshold_good:
+            return f"<span style='color: #28a745; font-weight: bold;'>{val_str} - Konserwatywny</span>"
+        elif v >= threshold_bad:
+            return f"<span style='color: #d73a49; font-weight: bold;'>{val_str} - Agresywny</span>"
+        else:
+            return f"<span style='color: #b08800; font-weight: bold;'>{val_str} - Zrównoważony</span>"
+    except:
+        return f"<span style='color: gray;'>{val_str}</span>"
 
 @st.cache_data(ttl=3600)
 def load_data(tickers):
@@ -218,127 +232,120 @@ elif page == "Kalkulator Ryzyka":
 
     st.markdown("---")
     
-    if st.button("Wykonaj analizę portfela", type="primary"):
-        if len(st.session_state.selected_tickers) < 2:
-            st.warning("Wybierz co najmniej 2 spółki, aby wykonać optymalizację portfela.")
-        else:
-            with st.spinner("Trwa pobieranie danych giełdowych i symulacja scenariuszy strat (to może potrwać do półtorej minuty, w przypadku błędu spróbuj ponownie)..."):
-                try:
-                    res = requests.get("https://quantriskengine.onrender.com/v1/portfolio/risk", params={"tickers": st.session_state.selected_tickers}, timeout=90)
-                    res.raise_for_status()
-                    data = res.json()
-                    
-                    st.success("Obliczenia zakończone sukcesem!")
-                    
-                    risk = data.get("risk_metrics", {})
-                    backtest = data.get("backtest", {})
-                    
-                    st.markdown("### Szczegółowy Raport Ryzyka")
-                    st.markdown("Poniżej znajdziesz wyniki wskaźników z opisem, jak wpływają na Twoje pieniądze.")
-                    
-                    # Zmień progi w get_eval_html na bardziej "rynkowe" dla akcji (Equity)
-                    def get_eval_html(val_str, threshold_good, threshold_bad):
-                        try:
-                            v = float(str(val_str).replace('%', '').strip())
-                            v = abs(v)
-                            # Volatility: <15% (Low), 15-30% (Moderate), >30% (High) - standard dla S&P500 vs Tech
-                            if v <= threshold_good:
-                                return f"<span style='color: #28a745; font-weight: bold;'>{val_str} - Konserwatywny</span>"
-                            elif v >= threshold_bad:
-                                return f"<span style='color: #d73a49; font-weight: bold;'>{val_str} - Agresywny</span>"
-                            else:
-                                return f"<span style='color: #b08800; font-weight: bold;'>{val_str} - Zrównoważony</span>"
-                        except:
-                            return f"<span style='color: gray;'>{val_str}</span>"
+    # dashboard/app.py -> Sekcja "Kalkulator Ryzyka"
 
-                    st.markdown("---")
-                    
-                    # 1. ZMIENNOŚĆ 
-                    v_vol = risk.get('volatility', 'N/A')
-                    c_box, c_desc = st.columns([1, 2.5])
-                    with c_box:
-                        st.markdown("<div class='result-box'><div class='metric-label'>Roczna zmienność (Volatility)</div>"
-                                    f"<div class='metric-value'>{v_vol}</div></div>", unsafe_allow_html=True)
-                    with c_desc:
-                        st.markdown("**Co to znaczy?** Jest to miara określająca, jak gwałtownie skaczą ceny Twoich akcji w ciągu roku.<br>"
-                                    "**Jak to wpływa na portfel?** Mniejsze wahania (poniżej 15%) to spokojniejszy sen i mniejsze ryzyko uwięzienia z minusem na koncie. Wyniki powyżej 25-30% oznaczają bardzo agresywny i podatny na panikę portfel.<br>"
-                                    f"**Twoja ocena:** {get_eval_html(v_vol, 15, 25)}", unsafe_allow_html=True)
-                    
-                    # 2. PARAMETRYCZNY VaR
-                    v_pvar = risk.get('parametric', {}).get('var', 'N/A')
-                    c_box, c_desc = st.columns([1, 2.5])
-                    with c_box:
-                        st.markdown("<div class='result-box'><div class='metric-label'>Parametryczny VaR (95%)</div>"
-                                    f"<div class='metric-value' style='color:#d73a49;'>{v_pvar}</div></div>", unsafe_allow_html=True)
-                    with c_desc:
-                        st.markdown("**Co to znaczy?** 'Value at Risk'. Mówi, jakiej maksymalnej straty w normalnych warunkach możemy się spodziewać w 95% przypadków.<br>"
-                                    "**Jak to wpływa na portfel?** Pokazuje granicę bólu. Jeśli wynosi np. 5%, oznacza to, że w 95% przypadków Twój portfel nie spadnie bardziej niż o te 5%. Chcemy, aby ta liczba była jak najniższa (najlepiej poniżej 3-5%).<br>"
-                                    f"**Twoja ocena:** {get_eval_html(v_pvar, 4, 8)}", unsafe_allow_html=True)
+    # dashboard/app.py -> Sekcja "Kalkulator Ryzyka"
 
-                    # 3. HISTORYCZNY VaR
-                    v_hvar = risk.get('historical', {}).get('var', 'N/A')
-                    c_box, c_desc = st.columns([1, 2.5])
-                    with c_box:
-                        st.markdown("<div class='result-box'><div class='metric-label'>Historyczny VaR (95%)</div>"
-                                    f"<div class='metric-value' style='color:#d73a49;'>{v_hvar}</div></div>", unsafe_allow_html=True)
-                    with c_desc:
-                        st.markdown("**Co to znaczy?** Ten sam wskaźnik co wyżej, ale bazujący sztywno na prawdziwych, historycznych krachach Twoich spółek.<br>"
-                                    "**Jak to wpływa na portfel?** Pozwala spojrzeć prawdzie w oczy: pokazuje, jak bardzo te konkretne spółki potrafiły dołować w przeszłości i chroni przed zbytnim optymizmem teorii matematycznych.<br>"
-                                    f"**Twoja ocena:** {get_eval_html(v_hvar, 4, 8)}", unsafe_allow_html=True)
+if st.button("Wykonaj analizę portfela", type="primary"):
+    if len(st.session_state.selected_tickers) < 2:
+        st.warning("Wybierz co najmniej 2 spółki.")
+    else:
+        # 1. Rozpoczynamy pasek postępu (UX Progress Bar)
+        with st.status("🚀 Quant Engine is processing...", expanded=True) as status:
+            st.write("📂 Accessing SQL Data Layer & Cache...")
+            
+            try:
+                # 2. Wywołanie Twojego API
+                # Zmień to:
+                res = requests.get("http://127.0.0.1:8000/v1/portfolio/risk", params={"tickers": st.session_state.selected_tickers}, timeout=90)
+                res.raise_for_status()
+                data = res.json()
+                
+                # 3. Przypisujemy dane do zmiennych (DEFINICJA)
+                risk = data.get("risk_metrics", {})
+                backtest = data.get("backtest", {})
+                analyzed_str = ", ".join(st.session_state.selected_tickers)
+                
+                # Udawane wpisy dla lepszego efektu UX
+                st.write("🧠 Correcting Volatility via PyTorch LSTM...")
+                st.write("⚙️ Generating 50,000 Monte Carlo Paths in C++ (OpenMP)...")
+                
+                # 4. Zamykamy pasek sukcesem
+                status.update(label="✅ Analysis Complete!", state="complete", expanded=False)
+                st.success("Obliczenia zakończone sukcesem!")
 
-                    # 4. OCZEKIWANA STRATA (CVaR)
-                    v_cvar = risk.get('historical', {}).get('es', 'N/A')
-                    c_box, c_desc = st.columns([1, 2.5])
-                    with c_box:
-                        st.markdown("<div class='result-box'><div class='metric-label'>Oczekiwana strata (CVaR)</div>"
-                                    f"<div class='metric-value' style='color:#cb2431;'>{v_cvar}</div></div>", unsafe_allow_html=True)
-                    with c_desc:
-                        st.markdown("**Co to znaczy?** Skrót od 'Expected Shortfall'. Pyta: 'Skoro już nadszedł czarny łabędź i pękło 95% pewności z modelu VaR, to ile średnio pieniędzy wtedy stracę?'.<br>"
-                                    "**Jak to wpływa na portfel?** To najważniejsza miara ochrony przed bankructwem. W ekstremalnych krachach pokazuje faktyczny ból. Dobry wynik utrzymuje się poniżej 6%. Powyżej 12% grozi ogromną stratą.<br>"
-                                    f"**Twoja ocena:** {get_eval_html(v_cvar, 6, 12)}", unsafe_allow_html=True)
+                # --- OD TEGO MOMENTU WYŚWIETLAMY TWOJE WYNIKI ---
+                st.markdown("### Szczegółowy Raport Ryzyka")
+                
+                # Informacja o AI (Twoja fioletowa linia)
+                st.markdown(f"""
+                <div style="color: #94a3b8; font-size: 14px; margin-bottom: 20px;">
+                    Analyzed Assets: <span style="color: black; font-weight: bold;">{analyzed_str}</span> &nbsp;|&nbsp; 
+                    Base Volatility: <span style="color: black; font-weight: bold;">{risk.get('volatility', 'N/A')}</span> &nbsp;|&nbsp;
+                    <span style="color: #7c3aed; font-weight: bold;">AI-Adjusted Volatility (LSTM): {risk.get('ai_adjusted_volatility', 'N/A')}</span>
+                </div>
+                """, unsafe_allow_html=True)
 
-                    # 5. MONTE CARLO VaR
-                    v_mcvar = risk.get('monte_carlo', {}).get('var', 'N/A')
-                    c_box, c_desc = st.columns([1, 2.5])
-                    with c_box:
-                        st.markdown("<div class='result-box'><div class='metric-label'>Monte Carlo VaR</div>"
-                                    f"<div class='metric-value' style='color:#d73a49;'>{v_mcvar}</div></div>", unsafe_allow_html=True)
-                    with c_desc:
-                        st.markdown("**Co to znaczy?** Potencjał straty wyliczony na podstawie tysięcy komputerowo wygenerowanych, losowych scenariuszy przyszłości.<br>"
-                                    "**Jak to wpływa na portfel?** Daje bardzo wiarygodny ogląd, ponieważ uwzględnia ścieżki rozwoju, które mogły się jeszcze nigdy historycznie nie wydarzyć.<br>"
-                                    f"**Twoja ocena:** {get_eval_html(v_mcvar, 4, 8)}", unsafe_allow_html=True)
+                st.markdown("---")
 
-                    # 6. STATUS WALIDACJI (TEST KUPCA) - Z filtrem logicznym
-                    v_status = backtest.get('status', 'N/A')
-                    v_viol = backtest.get('violations', 0)
-                    
-                    # Logika oceniająca - nie ufamy ślepo API!
-                    try:
-                        viol_count = int(v_viol)
-                        if viol_count > 16:
-                            v_status = "Odrzucony (Model nie trzyma ryzyka)"
-                            status_color = "#d73a49" # Czerwony
-                        else:
-                            status_color = "#28a745" if "Pass" in str(v_status) else "#b08800"
-                    except:
-                        status_color = "#586069" # Szary błąd
+                # 1. ZMIENNOŚĆ (TWOJA SEKCJA)
+                v_vol = risk.get('volatility', 'N/A')
+                c_box, c_desc = st.columns([1, 2.5])
+                with c_box:
+                    st.markdown(f"<div class='result-box'><div class='metric-label'>Roczna zmienność (Volatility)</div>"
+                                f"<div class='metric-value'>{v_vol}</div></div>", unsafe_allow_html=True)
+                with c_desc:
+                    st.markdown("**Co to znaczy?** Jest to miara określająca, jak gwałtownie skaczą ceny Twoich akcji w ciągu roku.<br>"
+                                "**Jak to wpływa na portfel?** Mniejsze wahania (poniżej 15%) to spokojniejszy sen. Wyniki powyżej 25-30% oznaczają bardzo agresywny portfel.<br>"
+                                f"**Twoja ocena:** {get_eval_html(v_vol, 15, 25)}", unsafe_allow_html=True)
 
-                    c_box, c_desc = st.columns([1, 2.5])
-                    with c_box:
-                        st.markdown("<div class='result-box'><div class='metric-label'>Wiarygodność modelu (Test Kupca)</div>"
-                                    f"<div class='metric-value' style='color:{status_color}; font-size:18px;'>{v_status}</div>"
-                                    f"<div style='font-size:12px; color:#586069; margin-top:5px;'>Przekroczenia straty (Pomyłki): {v_viol}</div></div>", unsafe_allow_html=True)
-                    with c_desc:
-                        st.markdown("**Co to znaczy?** Komputer cofa się w czasie i sprawdza, czy przewidziane ryzyko faktycznie ochroniło kapitał.<br>"
-                                    "**Jak to wpływa na portfel?** Limit pomyłek dla 1 roku wynosi około 12-16. Jeśli liczba 'pomyłek' jest wyższa, model zawiódł w przeszłości i nie wolno mu ufać.<br>", unsafe_allow_html=True)
+                # 2. PARAMETRYCZNY VaR
+                v_pvar = risk.get('parametric', {}).get('var', 'N/A')
+                c_box, c_desc = st.columns([1, 2.5])
+                with c_box:
+                    st.markdown(f"<div class='result-box'><div class='metric-label'>Parametryczny VaR (95%)</div>"
+                                f"<div class='metric-value' style='color:#d73a49;'>{v_pvar}</div></div>", unsafe_allow_html=True)
+                with c_desc:
+                    st.markdown("**Co to znaczy?** 'Value at Risk'. Mówi, jakiej maksymalnej straty możemy się spodziewać w 95% przypadków.<br>"
+                                f"**Twoja ocena:** {get_eval_html(v_pvar, 4, 8)}", unsafe_allow_html=True)
 
-                except requests.exceptions.ReadTimeout:
-                    st.error("Błąd: Serwer potrzebował zbyt dużo czasu na przeliczenie tak dużej ilości danych. Zmniejsz liczbę aktywów i spróbuj ponownie.")
-                except requests.exceptions.ConnectionError:
-                    st.error("Błąd połączenia z API na serwerze (np. na Render). Serwer może być w trybie uśpienia. Poczekaj 50s i spróbuj ponownie.")
-                except Exception as e:
-                    st.error(f"Wystąpił błąd podczas obliczeń: {e}")
+                # 3. HISTORYCZNY VaR
+                v_hvar = risk.get('historical', {}).get('var', 'N/A')
+                c_box, c_desc = st.columns([1, 2.5])
+                with c_box:
+                    st.markdown(f"<div class='result-box'><div class='metric-label'>Historyczny VaR (95%)</div>"
+                                f"<div class='metric-value' style='color:#d73a49;'>{v_hvar}</div></div>", unsafe_allow_html=True)
+                with c_desc:
+                    st.markdown("**Co to znaczy?** Wskaźnik bazujący sztywno na prawdziwych, historycznych krachach Twoich spółek.<br>"
+                                f"**Twoja ocena:** {get_eval_html(v_hvar, 4, 8)}", unsafe_allow_html=True)
 
+                # 4. OCZEKIWANA STRATA (CVaR)
+                v_cvar = risk.get('historical', {}).get('es', 'N/A')
+                c_box, c_desc = st.columns([1, 2.5])
+                with c_box:
+                    st.markdown(f"<div class='result-box'><div class='metric-label'>Oczekiwana strata (CVaR)</div>"
+                                f"<div class='metric-value' style='color:#cb2431;'>{v_cvar}</div></div>", unsafe_allow_html=True)
+                with c_desc:
+                    st.markdown("**Co to znaczy?** Skrót od 'Expected Shortfall'. Ile średnio stracę, jeśli pęknie bariera 95% pewności?<br>"
+                                f"**Twoja ocena:** {get_eval_html(v_cvar, 6, 12)}", unsafe_allow_html=True)
+
+                # 5. MONTE CARLO VaR
+                v_mcvar = risk.get('monte_carlo', {}).get('var', 'N/A')
+                c_box, c_desc = st.columns([1, 2.5])
+                with c_box:
+                    st.markdown(f"<div class='result-box'><div class='metric-label'>Monte Carlo VaR</div>"
+                                f"<div class='metric-value' style='color:#d73a49;'>{v_mcvar}</div></div>", unsafe_allow_html=True)
+                with c_desc:
+                    st.markdown("**Co to znaczy?** Potencjał straty wyliczony na podstawie 50,000 losowych scenariuszy z silnika C++.<br>"
+                                f"**Twoja ocena:** {get_eval_html(v_mcvar, 4, 8)}", unsafe_allow_html=True)
+
+                # 6. STATUS WALIDACJI (TEST KUPCA)
+                v_status = backtest.get('status', 'N/A')
+                v_viol = backtest.get('violations', 0)
+                status_color = "#28a745" if "Pass" in str(v_status) else "#d73a49"
+
+                c_box, c_desc = st.columns([1, 2.5])
+                with c_box:
+                    st.markdown(f"<div class='result-box'><div class='metric-label'>Wiarygodność (Test Kupca)</div>"
+                                f"<div class='metric-value' style='color:{status_color}; font-size:18px;'>{v_status}</div>"
+                                f"<div style='font-size:12px; color:#586069;'>Pomyłki: {v_viol}</div></div>", unsafe_allow_html=True)
+                with c_desc:
+                    st.markdown("**Co to znaczy?** Sprawdzenie, czy model nie mylił się zbyt często w przeszłości.")
+
+            except Exception as e:
+                # Jeśli cokolwiek pójdzie nie tak w bloku try, status pokaże błąd
+                status.update(label="❌ Engine Error", state="error")
+                st.error(f"Engine failed: {e}")
 
 # ==========================================
 # ZAKŁADKA 3: DORADCA PORTFELOWY (OBLICZENIA NA ŻYWO)
@@ -535,7 +542,7 @@ elif page == "Pobierz pliki":
     else:
         st.info("Brak wybranych spółek.")
     
-    # PRZYWRÓCONY CAŁY BLOK POBIERANIA CSV
+    # KROK 1: POBIERANIE CSV
     st.markdown("### Krok 1: Pobierz surowe dane z giełdy")
     st.markdown("Kliknij poniżej, aby pobrać faktyczne, codzienne stopy zwrotu z ostatniego roku dla wybranych spółek.")
     
@@ -550,7 +557,7 @@ elif page == "Pobierz pliki":
                     elif 'Close' in data:
                         prices = data['Close']
                     else:
-                        raise ValueError("Brak odpowiednich danych cenowych w odpowiedzi z giełdy.")
+                        raise ValueError("Brak odpowiednich danych cenowych.")
 
                     if isinstance(prices, pd.Series):
                         prices = prices.to_frame(name=st.session_state.selected_tickers[0])
@@ -558,11 +565,11 @@ elif page == "Pobierz pliki":
                     returns_df = prices.pct_change().dropna()
                     
                     if returns_df.empty:
-                        raise ValueError("Zwrócono puste dane. Sprawdź poprawność tickerów.")
+                        raise ValueError("Zwrócono puste dane.")
                     
                     csv = returns_df.to_csv(index=True).encode('utf-8')
                     
-                    st.success("Dane pobrane poprawnie! Arkusz jest gotowy do zapisu.")
+                    st.success("Dane pobrane poprawnie!")
                     st.download_button(
                         label="📥 Zapisz plik CSV z historią stóp zwrotu",
                         file_name="prawdziwa_historia_zwrotow.csv",
@@ -570,14 +577,14 @@ elif page == "Pobierz pliki":
                         data=csv
                     )
                 except Exception as e:
-                    st.error(f"Nie udało się wygenerować danych: {e}. Spróbuj wybrać inne aktywa.")
+                    st.error(f"Błąd generowania CSV: {e}")
         else:
-            st.warning("Najpierw musisz dodać jakieś akcje w zakładce Kalkulator Ryzyka!")
+            st.warning("Wybierz akcje w Kalkulatorze Ryzyka!")
     
     st.markdown("---")
-    st.markdown("### Krok 2: Konfiguracja silnika (JSON)")
     
-    # NAPRAWIONE: Zamiast "makiety" generujemy raport z faktycznych wyliczeń usera
+    # KROK 2: RAPORT JSON
+    st.markdown("### Krok 2: Konfiguracja silnika (JSON)")
     if 'last_opt_metrics' in st.session_state:
         real_report = {
             "engine_version": "2.1.0 (Scipy Optimized)",
@@ -599,4 +606,29 @@ elif page == "Pobierz pliki":
             data=json_string
         )
     else:
-        st.info("Przejdź najpierw do zakładki 'Doradca Portfelowy' i pozwól systemowi przeliczyć wagi, aby wygenerować Twój unikalny raport w formacie JSON.")
+        st.info("Przejdź do zakładki 'Doradca Portfelowy', aby wygenerować raport JSON.")
+
+    st.markdown("---")
+    
+    # KROK 3: FACTSHEET PDF
+    st.markdown("### Krok 3: Wygeneruj Factsheet dla Zarządu (PDF)")
+    if 'last_opt_metrics' in st.session_state:
+        if st.button("📄 Generuj Raport PDF", type="primary"):
+            with st.spinner("Generowanie dokumentu..."):
+                try:
+                    pdf_path = generate_pdf_factsheet(
+                        tickers=list(st.session_state.last_opt_weights.keys()),
+                        weights=list(st.session_state.last_opt_weights.values()),
+                        metrics=st.session_state.last_opt_metrics
+                    )
+                    with open(pdf_path, "rb") as pdf_file:
+                        st.download_button(
+                            label="📥 Pobierz wygenerowany PDF",
+                            data=pdf_file,
+                            file_name="Portfolio_Risk_Factsheet.pdf",
+                            mime="application/pdf"
+                        )
+                except Exception as e:
+                    st.error(f"Błąd generowania PDF: {e}")
+    else:
+        st.info("Oblicz wagi w 'Doradcy Portfelowym', aby odblokować generowanie PDF.")

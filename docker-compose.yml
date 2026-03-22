@@ -1,0 +1,30 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  fastapi-engine:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis-broker:6379
+    depends_on:
+      - redis-broker
+
+  streamlit-dashboard:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    command: streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    depends_on:
+      - fastapi-engine
+
+  redis-broker:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
