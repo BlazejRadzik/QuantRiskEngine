@@ -1,4 +1,3 @@
-from core.reporting import generate_pdf_factsheet
 import os
 import sys
 import streamlit as st
@@ -7,6 +6,7 @@ if root_path not in sys.path:
     sys.path.insert(0, root_path)
 
 try:
+    from core.reporting import generate_pdf_factsheet
     from core.models import get_optimal_weights, simulate_monte_carlo
     from core.risk_metrics import calculate_portfolio_metrics
 except ModuleNotFoundError:
