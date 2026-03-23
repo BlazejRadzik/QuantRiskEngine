@@ -38,7 +38,6 @@ def load_data(tickers):
     data = yf.download(tickers, period="1y", progress=False)
     return data
 
-
 def _fetch_risk_api(tickers, mc_paths, mc_days, stress_scenario=None, timeout=120):
     params = {
         "tickers": tickers,
@@ -51,13 +50,11 @@ def _fetch_risk_api(tickers, mc_paths, mc_days, stress_scenario=None, timeout=12
     res.raise_for_status()
     return res.json()
 
-
 def _pct_to_float(value):
     try:
         return float(str(value).replace("%", "").strip()) / 100.0
     except Exception:
         return 0.0
-
 
 def _pct_number(value):
     try:
@@ -71,10 +68,10 @@ st.markdown("""
     <style>
     /* Wymuszenie czytelności tekstu */
     .stApp { background-color: #ffffff; color: #24292e; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
-    
+
     /* UKRYCIE KÓŁEK (RADIO BUTTONS) I ZMIANA W PROSTOKĄTY */
     [data-testid="stRadio"] div[role="radiogroup"] > label > div:first-child {
-        display: none !important; 
+        display: none !important;
     }
     [data-testid="stRadio"] div[role="radiogroup"] > label {
         width: 100%;
@@ -89,15 +86,14 @@ st.markdown("""
     [data-testid="stRadio"] div[role="radiogroup"] > label:hover {
         background-color: #f0f2f6;
     }
-    
+
     /* Ukrycie domyślnego menu Streamlit z dołu */
-    #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    
+
     /* Metadane w pasku bocznym */
     .sidebar-meta { font-size: 14px; line-height: 1.6; color: #586069; }
     .sidebar-meta strong { color: #24292e; }
-    
+
     /* Sekcje wyników (Kalkulator) */
     .result-box { border: 1px solid #e1e4e8; border-radius: 6px; padding: 15px; margin-bottom: 15px; background-color: #fafbfc; height: 100%; }
     .metric-value { font-size: 24px; font-weight: bold; color: #0366d6; }
@@ -120,8 +116,8 @@ ALL_TICKERS.sort()
 
 with st.sidebar:
     st.markdown("### Nawigacja")
-    page = st.radio("Przejdź do", 
-                    ["Opis projektu", "Kalkulator Ryzyka", "Wizualizacja", "Doradca Portfelowy", "Pobierz pliki"], 
+    page = st.radio("Przejdź do",
+                    ["Opis projektu", "Kalkulator Ryzyka", "Wizualizacja", "Doradca Portfelowy", "Pobierz pliki"],
                     label_visibility="collapsed")
     risk_subpage = "Kalkulator"
     if page == "Kalkulator Ryzyka":
@@ -131,15 +127,15 @@ with st.sidebar:
             ["Kalkulator", "Wizualizacja Monte Carlo"],
             label_visibility="collapsed",
         )
-    
+
     st.markdown("---")
     st.markdown("### Szczegóły")
     st.markdown("<div class='sidebar-meta'>Te szczegóły zostały zweryfikowane przez System.</div>", unsafe_allow_html=True)
-    
+
     st.markdown("---")
     st.markdown("### Twórcy")
     st.markdown("<div class='sidebar-meta'><strong>BR</strong></div>", unsafe_allow_html=True)
-    
+
     st.markdown("---")
     st.markdown("### Metadane")
     st.markdown("""
@@ -150,27 +146,26 @@ with st.sidebar:
     </ul>
     </div>
     """, unsafe_allow_html=True)
-    
+
     st.markdown("---")
     st.markdown("### Kategorie")
     st.markdown("<div class='sidebar-meta'><strong>Grupa docelowa:</strong><br><ul><li>Inwestorzy indywidualni</li><li>Analitycy Finansowi</li></ul></div>", unsafe_allow_html=True)
-
 
 if page == "Opis projektu":
     st.title("Kalkulator Ryzyka Inwestycyjnego")
     st.markdown("**Czym jest ten projekt?**\nJest to proste w użyciu narzędzie do analizy bezpieczeństwa i optymalizacji portfeli inwestycyjnych na giełdzie.")
     st.markdown("**Dla kogo jest przeznaczone?**\nDla każdego inwestora, analityka lub programisty, który chce lepiej zrozumieć, ile ryzykuje na giełdzie i jak zbalansować swoje akcje, aby zminimalizować ewentualne straty.")
-    
+
     st.subheader("Instalacja modułu (dla programistów)")
     st.code("pip install portfolio-risk-calculator", language="bash")
-    
+
     st.markdown("---")
     st.subheader("Wdrożona Architektura")
     st.markdown("""
-    System pod spodem wykorzystuje silnik matematyczny do wyceny ryzyka. 
+    System pod spodem wykorzystuje silnik matematyczny do wyceny ryzyka.
     Aplikacja jest połączona z asynchronicznym API, które na bieżąco pobiera dane i wykonuje wektoryzowane obliczenia (NumPy, Pandas), ukrywając całą matematykę pod interfejsem.
     """)
-    
+
     st.subheader("Kluczowe możliwości algorytmu")
     st.markdown("""
     * **Ochrona kapitału:** Estymacja Oczekiwanej Straty (CVaR) w scenariuszach skrajnego załamania rynku.
@@ -180,28 +175,24 @@ if page == "Opis projektu":
     * **Symulacje przyszłości:** Generowanie losowych ścieżek rozwoju portfela (Metoda Monte Carlo).
     * **Weryfikacja modeli:** Automatyczny backtesting (Test Kupca) weryfikujący, czy modele matematyczne sprawdzały się w przeszłości.
     """)
-    
+
     st.subheader("Szybki start - Przykład użycia API w kodzie")
     st.markdown("Jeśli chcesz zintegrować kalkulator we własnym skrypcie Python, użyj poniższego kodu:")
-    
+
     st.code("""
     from core.risk_metrics import calculate_comprehensive_metrics
     from core.models import optimize_portfolio_weights
     from data.ingestor import fetch_data
 
-    # 1. Pobierz dane rynkowe dla spółek
     returns_df = fetch_data(["AAPL", "MSFT", "TSLA"])
 
-    # 2. Zoptymalizuj wagi portfela (szukaj najlepszego balansu zysk/ryzyko)
     optimal_weights = optimize_portfolio_weights(returns_df)
 
-    # 3. Wylicz metryki ryzyka na zoptymalizowanym portfelu
     portfolio_returns = returns_df.dot(optimal_weights)
     metrics = calculate_comprehensive_metrics(portfolio_returns)
 
     print(f"Szacowane ryzyko (VaR 95%): {metrics['parametric']['var']}")
     """, language="python")
-
 
 elif page == "Kalkulator Ryzyka":
     st.title("Interaktywny Kalkulator Ryzyka")
@@ -513,14 +504,12 @@ elif page == "Wizualizacja":
                     prices = prices[viz_tickers]
                     returns = prices.pct_change().dropna()
 
-                    # Simulated shock overlay to visualize EWMA correlation breakdown
                     returns_shock = returns.copy()
                     market_proxy = returns_shock.mean(axis=1)
                     shock_threshold = market_proxy.quantile(0.1)
                     shock_idx = market_proxy <= shock_threshold
                     returns_shock.loc[shock_idx] = returns_shock.loc[shock_idx] * 1.6 - 0.002
 
-                    # EWMA covariance and correlation (span=60)
                     lam = 1.0 - (2.0 / (60.0 + 1.0))
                     x = returns_shock.values
                     cov = np.cov(x[: min(20, len(x))].T)
@@ -561,7 +550,6 @@ elif page == "Wizualizacja":
                                 time.sleep(0.35)
                         raise last_exc
 
-                    # 1) Monte Carlo Volatility Funnel (100+ paths)
                     sim_count = 140
                     rng = np.random.default_rng(42)
                     dt = 1.0 / 252.0
@@ -657,7 +645,6 @@ elif page == "Wizualizacja":
                     fig_1.update_xaxes(gridcolor="rgba(100,116,139,0.18)", linewidth=1, linecolor="#94a3b8")
                     _set_panel_layout(fig_1, "Monte Carlo volatility funnel", "Scenarios under uncertainty")
 
-                    # 2) GARCH+LSTM Dynamic Correlation Matrix (financial diverging palette)
                     fig_2 = go.Figure(
                         data=go.Heatmap(
                             z=corr_df.values,
@@ -688,7 +675,6 @@ elif page == "Wizualizacja":
                     fig_2.update_xaxes(title_text="Assets")
                     fig_2.update_yaxes(title_text="Assets")
 
-                    # 3) Institutional Validation Summary (gauges + table + PASS badges)
                     from plotly.subplots import make_subplots
 
                     kup_p = float(backtest.get("kupiec_p", 0.0))
@@ -859,12 +845,12 @@ elif page == "Wizualizacja":
 elif page == "Doradca Portfelowy":
     st.title("Doradca Portfelowy")
     st.markdown("Wybierz swój profil inwestycyjny. Algorytm na żywo pobierze dane z giełdy i zoptymalizuje wagi dla wybranej grupy aktywów.")
-    
-    profile = st.selectbox("Określ swoją tolerancję na ryzyko:", 
+
+    profile = st.selectbox("Określ swoją tolerancję na ryzyko:",
                           ["Pozytywny (Niższe ryzyko)", "Zrównoważony (Średnie ryzyko)", "Dynamiczny (Wyższe ryzyko)"])
-    
+
     st.markdown("---")
-    
+
     base_config = {
         "Pozytywny (Niższe ryzyko)": {
             "tickers": ["JNJ", "PG", "WMT", "JPM", "V"],
@@ -888,32 +874,32 @@ elif page == "Doradca Portfelowy":
             "strategy_type": "max_return"
         }
     }
-    
+
     current_setup = base_config[profile]
     tickers = current_setup["tickers"]
     strategy = current_setup["strategy_type"]
-    
+
     current_weights = []
-    
+
     with st.spinner(f"Pobieram dane dla {', '.join(tickers)} i obliczam optymalne wagi..."):
         try:
             data = load_data(tickers)
             if 'Adj Close' in data: prices = data['Adj Close']
             else: prices = data['Close']
-            
+
             if isinstance(prices, pd.Series):
                 prices = prices.to_frame(name=tickers[0])
             else:
-                prices = prices[tickers] 
-            
+                prices = prices[tickers]
+
             returns = prices.pct_change().dropna()
-            
+
             current_weights = get_optimal_weights(returns, strategy)
             metrics = calculate_portfolio_metrics(current_weights, returns)
-            
+
             st.session_state.last_opt_weights = dict(zip(tickers, current_weights))
             st.session_state.last_opt_metrics = metrics
-            
+
             port_returns = metrics["portfolio_returns_series"]
             sortino_ratio = metrics["sortino_ratio"]
             skewness_val = metrics["skewness"]
@@ -927,23 +913,23 @@ elif page == "Doradca Portfelowy":
             sortino_ratio, skewness_val, kurt_val = 0.0, 0.0, 0.0
 
     col_text, col_chart = st.columns([1.2, 1])
-    
+
     with col_text:
         st.subheader(f"Strategia: {profile.split(' (')[0]}")
         st.markdown(f"**Dlaczego te spółki?**\n{current_setup['desc']}")
         st.info(f"**Metoda obliczeniowa:** {current_setup['method']}")
         st.markdown("**Zastosowany silnik:**")
         st.code(current_setup['code_logic'], language="python")
-        
+
     with col_chart:
-        fig_pie = px.pie(names=tickers, values=current_weights, 
+        fig_pie = px.pie(names=tickers, values=current_weights,
                          title="Wyliczona na żywo struktura portfela", hole=0.4,
                          color_discrete_sequence=px.colors.sequential.RdBu)
         fig_pie.update_layout(margin=dict(t=40, b=0, l=0, r=0), height=300)
         st.plotly_chart(fig_pie, use_container_width=True)
 
     st.markdown("---")
-    
+
     st.subheader("Kalkulator wielkości pozycji")
     c1, c2, c3 = st.columns([1, 1, 2])
     with c1:
@@ -961,21 +947,21 @@ elif page == "Doradca Portfelowy":
 
     st.subheader("Prognoza wzrostu (Symulacja komputerowa)")
     st.markdown("Potencjalne zachowanie zoptymalizowanego portfela w ciągu najbliższych 252 dni handlowych (1 rok).")
-    
+
     mean_path, worst_path, best_path = simulate_monte_carlo(port_returns)
-    
+
     cum_max = np.maximum.accumulate(worst_path)
     drawdown = (worst_path - cum_max) / cum_max
     max_drawdown = drawdown.min()
-    
+
     fig_line = go.Figure()
     fig_line.add_trace(go.Scatter(y=mean_path, mode='lines', name='Scenariusz bazowy', line=dict(color='#0366d6', width=2)))
     fig_line.add_trace(go.Scatter(y=best_path, mode='lines', name='Optymistycznie (95%)', line=dict(color='#28a745', dash='dot')))
     fig_line.add_trace(go.Scatter(y=worst_path, mode='lines', name='Pesymistycznie (5%)', line=dict(color='#d73a49', dash='dot')))
-    
+
     fig_line.update_layout(xaxis_title="Dni z rzędu", yaxis_title="Wartość portfela", height=350, margin=dict(t=20))
     st.plotly_chart(fig_line, use_container_width=True)
-    
+
     col_m1, col_m2, col_m3 = st.columns(3)
 
     col_m1.metric("Max Drawdown", f"{round(max_drawdown*100, 2)}%")
@@ -983,7 +969,7 @@ elif page == "Doradca Portfelowy":
     col_m3.metric("Skewness", f"{round(skewness_val, 2)}")
 
     st.metric("Kurtosis", f"{round(kurt_val, 2)}")
-    
+
     fig_hist = go.Figure()
 
     fig_hist.add_trace(go.Histogram(
@@ -1007,7 +993,7 @@ elif page == "Doradca Portfelowy":
     )
 
     st.plotly_chart(fig_hist, use_container_width=True)
-    
+
     if not returns.empty:
         rolling_vol = returns.std(axis=1).rolling(window=30).mean() * np.sqrt(252)
 
@@ -1021,26 +1007,24 @@ elif page == "Doradca Portfelowy":
 
         st.plotly_chart(fig_vol, use_container_width=True)
 
-
 elif page == "Pobierz pliki":
     st.title("Pobieranie plików i zasobów")
     st.markdown("Wygeneruj raport i **prawdziwe dane historyczne** dla spółek wybranych w Kalkulatorze.")
-    
+
     if len(st.session_state.selected_tickers) > 0:
         st.info(f"Aktualnie do portfela wybrano: **{', '.join(st.session_state.selected_tickers)}**")
     else:
         st.info("Brak wybranych spółek.")
-    
-    # KROK 1: POBIERANIE CSV
+
     st.markdown("### Krok 1: Pobierz surowe dane z giełdy")
     st.markdown("Kliknij poniżej, aby pobrać faktyczne, codzienne stopy zwrotu z ostatniego roku dla wybranych spółek.")
-    
+
     if st.button("Pobierz i przygotuj dane z Giełdy", type="primary"):
         if len(st.session_state.selected_tickers) > 0:
             with st.spinner("Łączenie z rynkiem finansowym i generowanie arkusza..."):
                 try:
                     data = yf.download(st.session_state.selected_tickers, period="1y", progress=False)
-                    
+
                     if 'Adj Close' in data:
                         prices = data['Adj Close']
                     elif 'Close' in data:
@@ -1050,14 +1034,14 @@ elif page == "Pobierz pliki":
 
                     if isinstance(prices, pd.Series):
                         prices = prices.to_frame(name=st.session_state.selected_tickers[0])
-                        
+
                     returns_df = prices.pct_change().dropna()
-                    
+
                     if returns_df.empty:
                         raise ValueError("Zwrócono puste dane.")
-                    
+
                     csv = returns_df.to_csv(index=True).encode('utf-8')
-                    
+
                     st.success("Dane pobrane poprawnie!")
                     st.download_button(
                         label="📥 Zapisz plik CSV z historią stóp zwrotu",
@@ -1069,10 +1053,9 @@ elif page == "Pobierz pliki":
                     st.error(f"Błąd generowania CSV: {e}")
         else:
             st.warning("Wybierz akcje w Kalkulatorze Ryzyka!")
-    
+
     st.markdown("---")
-    
-    # KROK 2: RAPORT JSON
+
     st.markdown("### Krok 2: Konfiguracja silnika (JSON)")
     if 'last_opt_metrics' in st.session_state:
         real_report = {
@@ -1098,8 +1081,7 @@ elif page == "Pobierz pliki":
         st.info("Przejdź do zakładki 'Doradca Portfelowy', aby wygenerować raport JSON.")
 
     st.markdown("---")
-    
-    # KROK 3: FACTSHEET PDF
+
     st.markdown("### Krok 3: Wygeneruj Factsheet dla Zarządu (PDF)")
     if 'last_opt_metrics' in st.session_state:
         if st.button("📄 Generuj Raport PDF", type="primary"):

@@ -3,7 +3,6 @@ import os
 from setuptools import setup, Extension
 import pybind11
 
-# Flagi dla kompilatora Microsoft Visual C++ (MSVC)
 if sys.platform == "win32":
     cpp_args = ['/openmp', '/O2', '/EHsc', '/std:c++17']
     link_args = ['/openmp']
