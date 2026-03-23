@@ -8,7 +8,9 @@ if root_path not in sys.path:
 try:
     from core.reporting import generate_pdf_factsheet
     from core.models import get_optimal_weights, simulate_monte_carlo
-    from core.risk_metrics import calculate_portfolio_metrics
+    from core.risk_metrics import calculate_portfolio_metrics, calculate_comprehensive_metrics
+    from core.backtesting import run_full_backtest
+    from core.stress_testing import apply_historical_scenario
 except ModuleNotFoundError:
     st.error(f"Nie znaleziono modułów w: {root_path}. Sprawdź strukturę plików na GitHub.")
 import requests
@@ -46,9 +48,55 @@ def _fetch_risk_api(tickers, mc_paths, mc_days, stress_scenario=None, timeout=12
     }
     if stress_scenario:
         params["stress_scenario"] = stress_scenario
-    res = requests.get("http://127.0.0.1:8000/v1/portfolio/risk", params=params, timeout=timeout)
-    res.raise_for_status()
-    return res.json()
+    api_candidates = []
+    secret_url = st.secrets.get("api_base_url") if hasattr(st, "secrets") else None
+    env_url = os.getenv("QUANT_API_URL")
+    if secret_url:
+        api_candidates.append(str(secret_url).rstrip("/"))
+    if env_url:
+        api_candidates.append(str(env_url).rstrip("/"))
+    api_candidates.append("http://127.0.0.1:8000")
+    last_error = None
+    for base_url in api_candidates:
+        try:
+            res = requests.get(f"{base_url}/v1/portfolio/risk", params=params, timeout=timeout)
+            res.raise_for_status()
+            return res.json()
+        except Exception as e:
+            last_error = e
+    try:
+        return _compute_risk_locally(tickers, mc_paths, mc_days, stress_scenario)
+    except Exception:
+        raise last_error if last_error is not None else RuntimeError("Nie udało się pobrać danych ryzyka.")
+
+def _compute_risk_locally(tickers, mc_paths, mc_days, stress_scenario=None):
+    prices_raw = load_data(tickers)
+    prices = prices_raw["Adj Close"] if "Adj Close" in prices_raw else prices_raw["Close"]
+    if isinstance(prices, pd.Series):
+        prices = prices.to_frame(name=tickers[0])
+    prices = prices[tickers].dropna(how="all")
+    returns_df = np.log(prices / prices.shift(1)).dropna()
+    if returns_df.empty or len(returns_df) < 30:
+        raise ValueError("Za mało danych historycznych do obliczeń.")
+    weights = get_optimal_weights(returns_df, strategy="max_sharpe")
+    port_returns = returns_df.dot(weights)
+    risk_metrics, var_parametric_daily = calculate_comprehensive_metrics(
+        port_returns,
+        mc_paths=int(mc_paths),
+        mc_days=int(mc_days),
+    )
+    backtest = run_full_backtest(port_returns, var_parametric_daily)
+    if stress_scenario:
+        stress_test = apply_historical_scenario(port_returns, scenario=stress_scenario)
+    else:
+        stress_test = {"scenario_name": "Normalna zmienność", "simulated_max_drawdown": 0.0, "status": "N/A"}
+    return {
+        "status": "success",
+        "assets": {t: round(float(w), 4) for t, w in zip(tickers, weights)},
+        "risk_metrics": risk_metrics,
+        "backtest": backtest,
+        "stress_test": stress_test,
+    }
 
 def _pct_to_float(value):
     try:
