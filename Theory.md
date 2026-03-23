@@ -25,6 +25,7 @@ To capture "Volatility Clustering", we use a hybrid approach. The conditional va
 $$\sigma_t^2 = \omega + \alpha \epsilon_{t-1}^2 + \beta \sigma_{t-1}^2$$
 
 **The LSTM Correction:** The residuals from the GARCH model are fed into a **Long Short-Term Memory (LSTM)** network to predict non-linear shocks:
+
 $$\hat{\sigma}_{total} = \sigma_{GARCH} + f_{LSTM}(\epsilon_{t-k}, \dots, \epsilon_{t-1})$$
 
 ---
