@@ -1,9 +1,7 @@
 import time
 from typing import List, Optional
-
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query
-
 from core.backtesting import run_full_backtest
 from core.risk_metrics import calculate_comprehensive_metrics, optimize_portfolio_weights
 from core.stress_testing import apply_historical_scenario
@@ -26,7 +24,6 @@ def _simulate_numpy_returns(mu: float, sigma: float, days: int, num_paths: int) 
 def _benchmark_engine(mu: float, sigma: float, days: int, paths: int, runs: int) -> dict:
     omp_times = []
     np_times = []
-
     for _ in range(runs):
         t0 = time.perf_counter()
         if monte_carlo_cpp is not None:
@@ -34,7 +31,6 @@ def _benchmark_engine(mu: float, sigma: float, days: int, paths: int, runs: int)
         else:
             _ = _simulate_numpy_returns(mu, sigma, days, paths)
         omp_times.append(time.perf_counter() - t0)
-
         t1 = time.perf_counter()
         _ = _simulate_numpy_returns(mu, sigma, days, paths)
         np_times.append(time.perf_counter() - t1)
@@ -42,8 +38,8 @@ def _benchmark_engine(mu: float, sigma: float, days: int, paths: int, runs: int)
     omp_avg = float(np.mean(omp_times))
     np_avg = float(np.mean(np_times))
     speedup = (np_avg / omp_avg) if omp_avg > 0 else 0.0
-
     omp_info = {}
+   
     if monte_carlo_cpp is not None and hasattr(monte_carlo_cpp, "get_omp_info"):
         try:
             omp_info = monte_carlo_cpp.get_omp_info()
@@ -74,12 +70,9 @@ async def get_portfolio_risk(
         if data is None or len(data) < 30:
             msg = f"Insufficient data: only {len(data) if data is not None else 0} overlapping days found."
             raise HTTPException(status_code=404, detail=msg)
-
         returns_df = np.log(data / data.shift(1)).dropna()
-
         weights = optimize_portfolio_weights(returns_df)
         port_returns = returns_df.dot(weights)
-
         risk_metrics, var_parametric_daily = calculate_comprehensive_metrics(
             port_returns,
             mc_paths=mc_paths,
@@ -87,7 +80,6 @@ async def get_portfolio_risk(
         )
         backtest = run_full_backtest(port_returns, var_parametric_daily)
         stress_test = apply_historical_scenario(port_returns, scenario=stress_scenario)
-
         return {
             "status": "success",
             "assets": {t: round(float(w), 4) for t, w in zip(tickers, weights)},
