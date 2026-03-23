@@ -1,4 +1,4 @@
-# **Mathematical & Theoretical Background** 🧠
+# **Mathematical Background** 
 
 This document outlines the core quantitative models implemented in the **QuantRisk Suite**.
 
