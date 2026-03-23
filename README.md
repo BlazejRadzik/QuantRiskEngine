@@ -34,20 +34,11 @@ A two-stage pipeline for capturing market stress:
 
 | **Hybrid Volatility Analysis** | **Institutional Risk Report (PDF)** |
 | :---: | :---: |
-| ![Volatility Funnel](<img width="860" height="534" alt="image" src="https://github.com/user-attachments/assets/34733444-4f67-49d8-a96b-6f7dc33ff6a9" />
-<img width="860" height="534" alt="image" src="https://github.com/user-attachments/assets/34733444-4f67-49d8-a96b-6f7dc33ff6a9" />
-) | [📄 View Sample Report](<img width="765" height="887" alt="image" src="https://github.com/user-attachments/assets/9428eba0-e855-4fd2-85a4-0f5651e22a7a" />
-<img width="765" height="887" alt="image" src="https://github.com/user-attachments/assets/9428eba0-e855-4fd2-85a4-0f5651e22a7a" />
-) |
+| <img src="https://github.com/user-attachments/assets/34733444-4f67-49d8-a96b-6f7dc33ff6a9" width="400"> | [📄 **View Sample Report (PDF)**](risk_report.pdf) <br> <img src="https://github.com/user-attachments/assets/9428eba0-e855-4fd2-85a4-0f5651e22a7a" width="250"> |
 
 | **Backtesting & Validation** | **Portfolio Optimization** |
 | :---: | :---: |
-| ![Validation](<img width="907" height="592" alt="image" src="https://github.com/user-attachments/assets/109bdf00-e640-4be8-bb9a-146f71ef6a82" />
-<img width="907" height="592" alt="image" src="https://github.com/user-attachments/assets/109bdf00-e640-4be8-bb9a-146f71ef6a82" />
-) | ![Portfolio](<img width="852" height="526" alt="image" src="https://github.com/user-attachments/assets/62466b68-7a15-4f58-a96d-2438c31a2a3c" />
-<img width="852" height="526" alt="image" src="https://github.com/user-attachments/assets/62466b68-7a15-4f58-a96d-2438c31a2a3c" />
-) |
----
+| <img src="https://github.com/user-attachments/assets/109bdf00-e640-4be8-bb9a-146f71ef6a82" width="400"> | <img src="https://github.com/user-attachments/assets/62466b68-7a15-4f58-a96d-2438c31a2a3c" width="400"> |
 
 ## **Quick Start & Usage**
 
