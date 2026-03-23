@@ -6,3 +6,8 @@ yfinance>=0.2.30
 plotly>=5.15.0
 requests>=2.31.0
 cvxopt>=1.3.0
+arch
+torch
+fpdf2
+pybind11
+kaleido
