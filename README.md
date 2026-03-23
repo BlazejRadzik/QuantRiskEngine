@@ -26,13 +26,13 @@ A two-stage pipeline for capturing market stress:
 * **Stage 2:** **LSTM (Recurrent Neural Network)** to correct residuals and capture non-linear "fat-tail" events that standard models miss.
 
 ### **3. Institutional Validation Layer**
-We don't just guess; we prove.
+
 * **Kupiec’s Proportion of Failures (POF) Test.**
 * **Christoffersen’s Independence Test** (Detecting VaR violations clustering).
 
 ---
 
-## **📊 Quick Start & Usage**
+## **Quick Start & Usage**
 
 ```python
 from quantrisk import MonteCarloEngine, HybridVol
