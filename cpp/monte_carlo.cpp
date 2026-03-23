@@ -8,7 +8,6 @@
 namespace py = pybind11;
 
 py::array_t<double> simulate_paths(double S0, double drift, double vol, int days, int num_paths) {
-    // Alokacja tablicy - sprawdzamy, czy num_paths nie jest absurdalne
     if (num_paths > 100000000) num_paths = 100000000; 
     
     auto result = py::array_t<double>(num_paths);
@@ -20,7 +19,6 @@ py::array_t<double> simulate_paths(double S0, double drift, double vol, int days
 
     #pragma omp parallel
     {
-        // Seedowanie oparte na czasie i ID wątku - najstabilniejsze na Windows
         unsigned int seed = static_cast<unsigned int>(time(NULL)) ^ omp_get_thread_num();
         std::mt19937 gen(seed);
         std::normal_distribution<double> dist(0.0, 1.0);
