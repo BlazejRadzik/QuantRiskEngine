@@ -30,6 +30,15 @@ A two-stage pipeline for capturing market stress:
 * **Kupiec’s Proportion of Failures (POF) Test.**
 * **Christoffersen’s Independence Test** (Detecting VaR violations clustering).
 
+## **🖼️ Dashboard & Reporting Showcase**
+
+| **Hybrid Volatility Analysis** | **Institutional Risk Report (PDF)** |
+| :---: | :---: |
+| ![Volatility Funnel]([LINK_DO_SCREENSHOTU_Z_LEJKIEM]) | [📄 View Sample Report](risk_report.pdf) |
+
+| **Backtesting & Validation** | **Portfolio Optimization** |
+| :---: | :---: |
+| ![Validation]([LINK_DO_SCREENSHOTU_Z_ZEGARAMI]) | ![Portfolio]([LINK_DO_SCREENSHOTU_Z_PIE_CHARTEM]) |
 ---
 
 ## **Quick Start & Usage**
