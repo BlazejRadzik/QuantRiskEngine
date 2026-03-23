@@ -15,8 +15,7 @@ def run_full_backtest(returns: pd.Series, var_value: float, confidence_level: fl
     ratio = x / n if x > 0 else 0.0001
     lr_pof = -2 * ((n - x) * np.log(1 - alpha) + x * np.log(alpha) - (n - x) * np.log(1 - ratio) - x * np.log(ratio))
     p_kupiec = 1 - chi2.cdf(lr_pof, df=1)
-
-    p_christ = 0.5 # default if test cannot be run
+    p_christ = 0.5 
     christ_stat = 0.0
     if x > 1:
         n00 = n01 = n10 = n11 = 0
@@ -26,12 +25,10 @@ def run_full_backtest(returns: pd.Series, var_value: float, confidence_level: fl
             elif hits_list[i] == 0 and hits_list[i+1] == 1: n01 += 1
             elif hits_list[i] == 1 and hits_list[i+1] == 0: n10 += 1
             else: n11 += 1
-
         try:
             pi0 = n01 / (n00 + n01) if (n00 + n01) > 0 else 0
             pi1 = n11 / (n10 + n11) if (n10 + n11) > 0 else 0
             pi = (n01 + n11) / n
-
             if 0 < pi < 1 and 0 < pi0 < 1 and 0 < pi1 < 1:
                 ln_alt = n00 * np.log(1 - pi0) + n01 * np.log(pi0) + n10 * np.log(1 - pi1) + n11 * np.log(pi1)
                 ln_null = (n00 + n10) * np.log(1 - pi) + (n01 + n11) * np.log(pi)
