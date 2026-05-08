@@ -12,7 +12,7 @@ try:
     from core.backtesting import run_full_backtest
     from core.stress_testing import apply_historical_scenario
 except ModuleNotFoundError:
-    st.error(f"Nie znaleziono modułów w: {root_path}. Sprawdź strukturę plików na GitHub.")
+    st.error(f"Modules not found at: {root_path}. Check the file structure on GitHub.")
 import requests
 import pandas as pd
 import json
@@ -27,11 +27,11 @@ def get_eval_html(val_str, threshold_good, threshold_bad):
         v = float(str(val_str).replace('%', '').strip())
         v = abs(v)
         if v <= threshold_good:
-            return f"<span style='color: #28a745; font-weight: bold;'>{val_str} - Pozytywny</span>"
+            return f"<span style='color: #28a745; font-weight: bold;'>{val_str} - Positive</span>"
         elif v >= threshold_bad:
-            return f"<span style='color: #d73a49; font-weight: bold;'>{val_str} - Dynamiczny</span>"
+            return f"<span style='color: #d73a49; font-weight: bold;'>{val_str} - Dynamic</span>"
         else:
-            return f"<span style='color: #b08800; font-weight: bold;'>{val_str} - Umiarkowany</span>"
+            return f"<span style='color: #b08800; font-weight: bold;'>{val_str} - Moderate</span>"
     except:
         return f"<span style='color: gray;'>{val_str}</span>"
 
@@ -67,7 +67,7 @@ def _fetch_risk_api(tickers, mc_paths, mc_days, stress_scenario=None, timeout=12
     try:
         return _compute_risk_locally(tickers, mc_paths, mc_days, stress_scenario)
     except Exception:
-        raise last_error if last_error is not None else RuntimeError("Nie udało się pobrać danych ryzyka.")
+        raise last_error if last_error is not None else RuntimeError("Failed to retrieve risk data.")
 
 def _compute_risk_locally(tickers, mc_paths, mc_days, stress_scenario=None):
     prices_raw = load_data(tickers)
@@ -77,7 +77,7 @@ def _compute_risk_locally(tickers, mc_paths, mc_days, stress_scenario=None):
     prices = prices[tickers].dropna(how="all")
     returns_df = np.log(prices / prices.shift(1)).dropna()
     if returns_df.empty or len(returns_df) < 30:
-        raise ValueError("Za mało danych historycznych do obliczeń.")
+        raise ValueError("Not enough historical data to perform calculations.")
     weights = get_optimal_weights(returns_df, strategy="max_sharpe")
     port_returns = returns_df.dot(weights)
     risk_metrics, var_parametric_daily = calculate_comprehensive_metrics(
@@ -89,7 +89,7 @@ def _compute_risk_locally(tickers, mc_paths, mc_days, stress_scenario=None):
     if stress_scenario:
         stress_test = apply_historical_scenario(port_returns, scenario=stress_scenario)
     else:
-        stress_test = {"scenario_name": "Normalna zmienność", "simulated_max_drawdown": 0.0, "status": "N/A"}
+        stress_test = {"scenario_name": "Normal volatility", "simulated_max_drawdown": 0.0, "status": "N/A"}
     return {
         "status": "success",
         "assets": {t: round(float(w), 4) for t, w in zip(tickers, weights)},
@@ -110,14 +110,14 @@ def _pct_number(value):
     except Exception:
         return 0.0
 
-st.set_page_config(page_title="Kalkulator Ryzyka Inwestycyjnego", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Investment Risk Calculator", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
-    /* Wymuszenie czytelności tekstu */
+    /* Force text readability */
     .stApp { background-color: #ffffff; color: #24292e; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
 
-    /* UKRYCIE KÓŁEK (RADIO BUTTONS) I ZMIANA W PROSTOKĄTY */
+    /* HIDE RADIO CIRCLES AND REPLACE WITH RECTANGLES */
     [data-testid="stRadio"] div[role="radiogroup"] > label > div:first-child {
         display: none !important;
     }
@@ -135,14 +135,14 @@ st.markdown("""
         background-color: #f0f2f6;
     }
 
-    /* Ukrycie domyślnego menu Streamlit z dołu */
+    /* Hide default Streamlit footer */
     footer {visibility: hidden;}
 
-    /* Metadane w pasku bocznym */
+    /* Sidebar metadata */
     .sidebar-meta { font-size: 14px; line-height: 1.6; color: #586069; }
     .sidebar-meta strong { color: #24292e; }
 
-    /* Sekcje wyników (Kalkulator) */
+    /* Result sections (Calculator) */
     .result-box { border: 1px solid #e1e4e8; border-radius: 6px; padding: 15px; margin-bottom: 15px; background-color: #fafbfc; height: 100%; }
     .metric-value { font-size: 24px; font-weight: bold; color: #0366d6; }
     .metric-label { font-size: 12px; color: #586069; text-transform: uppercase; font-weight: bold; margin-bottom: 5px; }
@@ -153,79 +153,79 @@ if "selected_tickers" not in st.session_state:
     st.session_state.selected_tickers = ["MSFT", "AAPL"]
 
 ETF_CONSTITUENTS = {
-    "Wybierz ETF...": [],
+    "Select ETF...": [],
     "SPY (S&P 500 Top)": ["AAPL", "MSFT", "AMZN", "NVDA", "GOOGL", "META", "BRK-B", "TSLA", "UNH", "JNJ"],
     "QQQ (Nasdaq 100)": ["MSFT", "AAPL", "NVDA", "AMZN", "META", "AVGO", "TSLA", "GOOGL", "GOOG", "COST", "PEP"],
-    "XLF (Sektor Finansowy)": ["BRK-B", "JPM", "V", "MA", "BAC", "WFC", "SPGI", "GS", "MS", "AXP"]
+    "XLF (Financial Sector)": ["BRK-B", "JPM", "V", "MA", "BAC", "WFC", "SPGI", "GS", "MS", "AXP"]
 }
 
 ALL_TICKERS = list(set(["AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "NVDA", "NFLX", "JPM", "V", "WMT", "JNJ", "PG", "XOM", "BAC", "MA", "HD", "CVX", "MRK", "KO", "PEP", "AVGO", "COST", "MCD", "CSCO", "INTC", "AMD", "DIS", "ADBE", "CRM"] + [ticker for sublist in ETF_CONSTITUENTS.values() for ticker in sublist]))
 ALL_TICKERS.sort()
 
 with st.sidebar:
-    st.markdown("### Nawigacja")
-    page = st.radio("Przejdź do",
-                    ["Opis projektu", "Kalkulator Ryzyka", "Wizualizacja", "Doradca Portfelowy", "Pobierz pliki"],
+    st.markdown("### Navigation")
+    page = st.radio("Go to",
+                    ["Project Overview", "Risk Calculator", "Visualization", "Portfolio Advisor", "Download Files"],
                     label_visibility="collapsed")
-    risk_subpage = "Kalkulator"
-    if page == "Kalkulator Ryzyka":
-        st.markdown("### Podsekcje kalkulatora")
+    risk_subpage = "Calculator"
+    if page == "Risk Calculator":
+        st.markdown("### Calculator subsections")
         risk_subpage = st.radio(
-            "Wybierz podsekcję",
-            ["Kalkulator", "Wizualizacja Monte Carlo"],
+            "Select subsection",
+            ["Calculator", "Monte Carlo Visualization"],
             label_visibility="collapsed",
         )
 
     st.markdown("---")
-    st.markdown("### Szczegóły")
-    st.markdown("<div class='sidebar-meta'>Te szczegóły zostały zweryfikowane przez System.</div>", unsafe_allow_html=True)
+    st.markdown("### Details")
+    st.markdown("<div class='sidebar-meta'>These details have been verified by the System.</div>", unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("### Twórcy")
+    st.markdown("### Authors")
     st.markdown("<div class='sidebar-meta'><strong>BR</strong></div>", unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("### Metadane")
+    st.markdown("### Metadata")
     st.markdown("""
     <div class='sidebar-meta'>
     <ul>
-        <li><strong>Licencja:</strong> MIT</li>
-        <li>python, finanse, ryzyko, inwestycje</li>
+        <li><strong>License:</strong> MIT</li>
+        <li>python, finance, risk, investments</li>
     </ul>
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("### Kategorie")
-    st.markdown("<div class='sidebar-meta'><strong>Grupa docelowa:</strong><br><ul><li>Inwestorzy indywidualni</li><li>Analitycy Finansowi</li></ul></div>", unsafe_allow_html=True)
+    st.markdown("### Categories")
+    st.markdown("<div class='sidebar-meta'><strong>Target audience:</strong><br><ul><li>Individual investors</li><li>Financial Analysts</li></ul></div>", unsafe_allow_html=True)
 
-if page == "Opis projektu":
-    st.title("Kalkulator Ryzyka Inwestycyjnego")
-    st.markdown("**Czym jest ten projekt?**\nJest to proste w użyciu narzędzie do analizy bezpieczeństwa i optymalizacji portfeli inwestycyjnych na giełdzie.")
-    st.markdown("**Dla kogo jest przeznaczone?**\nDla każdego inwestora, analityka lub programisty, który chce lepiej zrozumieć, ile ryzykuje na giełdzie i jak zbalansować swoje akcje, aby zminimalizować ewentualne straty.")
+if page == "Project Overview":
+    st.title("Investment Risk Calculator")
+    st.markdown("**What is this project?**\nThis is an easy-to-use tool for security analysis and optimization of investment portfolios on the stock exchange.")
+    st.markdown("**Who is it for?**\nFor any investor, analyst or developer who wants to better understand how much risk they are taking in the market and how to balance their holdings to minimize potential losses.")
 
-    st.subheader("Instalacja modułu (dla programistów)")
+    st.subheader("Module installation (for developers)")
     st.code("pip install portfolio-risk-calculator", language="bash")
 
     st.markdown("---")
-    st.subheader("Wdrożona Architektura")
+    st.subheader("Deployed Architecture")
     st.markdown("""
-    System pod spodem wykorzystuje silnik matematyczny do wyceny ryzyka.
-    Aplikacja jest połączona z asynchronicznym API, które na bieżąco pobiera dane i wykonuje wektoryzowane obliczenia (NumPy, Pandas), ukrywając całą matematykę pod interfejsem.
+    The system underneath uses a mathematical engine for risk pricing.
+    The application is connected to an asynchronous API that continuously fetches data and performs vectorized calculations (NumPy, Pandas), hiding all the math behind the interface.
     """)
 
-    st.subheader("Kluczowe możliwości algorytmu")
+    st.subheader("Key algorithm capabilities")
     st.markdown("""
-    * **Ochrona kapitału:** Estymacja Oczekiwanej Straty (CVaR) w scenariuszach skrajnego załamania rynku.
-    * **Maksymalizacja zysków:** Optymalizacja portfela metodą Markowitza w celu znalezienia idealnego balansu między ryzykiem a zyskiem.
-    * **Ocena historyczna:** Parametryczny i Historyczny VaR (Value at Risk - wskaźnik zagrożenia kapitału).
-    * **Analiza zmienności:** Prognozowanie przyszłych wahań cen za pomocą procesów GARCH(1,1).
-    * **Symulacje przyszłości:** Generowanie losowych ścieżek rozwoju portfela (Metoda Monte Carlo).
-    * **Weryfikacja modeli:** Automatyczny backtesting (Test Kupca) weryfikujący, czy modele matematyczne sprawdzały się w przeszłości.
+    * **Capital protection:** Estimation of Expected Shortfall (CVaR) in extreme market crash scenarios.
+    * **Profit maximization:** Portfolio optimization using Markowitz method to find the ideal risk-return balance.
+    * **Historical assessment:** Parametric and Historical VaR (Value at Risk – capital risk indicator).
+    * **Volatility analysis:** Forecasting future price fluctuations using GARCH(1,1) processes.
+    * **Future simulations:** Generating random portfolio development paths (Monte Carlo method).
+    * **Model verification:** Automatic backtesting (Kupiec test) verifying whether mathematical models held up in the past.
     """)
 
-    st.subheader("Szybki start - Przykład użycia API w kodzie")
-    st.markdown("Jeśli chcesz zintegrować kalkulator we własnym skrypcie Python, użyj poniższego kodu:")
+    st.subheader("Quick start - API usage example in code")
+    st.markdown("If you want to integrate the calculator into your own Python script, use the code below:")
 
     st.code("""
     from core.risk_metrics import calculate_comprehensive_metrics
@@ -239,23 +239,23 @@ if page == "Opis projektu":
     portfolio_returns = returns_df.dot(optimal_weights)
     metrics = calculate_comprehensive_metrics(portfolio_returns)
 
-    print(f"Szacowane ryzyko (VaR 95%): {metrics['parametric']['var']}")
+    print(f"Estimated risk (VaR 95%): {metrics['parametric']['var']}")
     """, language="python")
 
-elif page == "Kalkulator Ryzyka":
-    st.title("Interaktywny Kalkulator Ryzyka")
-    st.markdown("Przetestuj swoje inwestycje. Wybierz spółki, ustaw parametry symulacji i przejdź do wyników lub samej wizualizacji.")
+elif page == "Risk Calculator":
+    st.title("Interactive Risk Calculator")
+    st.markdown("Test your investments. Select companies, set simulation parameters and proceed to the results or visualization.")
 
     st.markdown("---")
 
     col_search, col_etf = st.columns([1.5, 1])
     with col_etf:
-        st.markdown("### 🏦 Wybierz z ETF")
-        selected_etf = st.selectbox("Wybierz fundusz, aby zobaczyć jego składniki:", list(ETF_CONSTITUENTS.keys()))
-        if selected_etf != "Wybierz ETF...":
+        st.markdown("### 🏦 Select from ETF")
+        selected_etf = st.selectbox("Select a fund to view its constituents:", list(ETF_CONSTITUENTS.keys()))
+        if selected_etf != "Select ETF...":
             etf_tickers = ETF_CONSTITUENTS[selected_etf]
-            st.info(f"**Skład {selected_etf}:** {', '.join(etf_tickers)}")
-            if st.button(f"➕ Dodaj akcje z {selected_etf.split(' ')[0]}"):
+            st.info(f"**{selected_etf} composition:** {', '.join(etf_tickers)}")
+            if st.button(f"➕ Add stocks from {selected_etf.split(' ')[0]}"):
                 current_list = st.session_state.get("ms_tickers", st.session_state.selected_tickers)
                 new_list = list(current_list)
                 for t in etf_tickers:
@@ -266,39 +266,39 @@ elif page == "Kalkulator Ryzyka":
                 st.rerun()
 
     with col_search:
-        st.markdown("### 🔍 Wyszukiwarka spółek")
+        st.markdown("### 🔍 Company search")
 
         def update_tickers():
             st.session_state.selected_tickers = st.session_state.ms_tickers
 
         st.multiselect(
-            "Wpisz ticker (np. AAPL) lub wybierz z listy (Limit: max 12 spółek dla stabilności serwera):",
+            "Type a ticker (e.g. AAPL) or select from the list (Limit: max 12 companies for server stability):",
             options=ALL_TICKERS,
             default=st.session_state.selected_tickers,
             key="ms_tickers",
             on_change=update_tickers,
             max_selections=12,
         )
-        st.caption(f"Wybrano: {len(st.session_state.selected_tickers)} aktywów")
+        st.caption(f"Selected: {len(st.session_state.selected_tickers)} assets")
 
     st.markdown("---")
     mc_paths = st.slider("Monte Carlo paths", min_value=50_000, max_value=20_000_000, value=2_000_000, step=50_000)
     mc_days = st.slider("Monte Carlo horizon (days)", min_value=1, max_value=30, value=10, step=1)
     period_mode = st.selectbox(
-        "Okres analizy",
-        ["Normalna zmienność", "COVID_19_Shock", "Global_Financial_Crisis"],
-        help="W trybie normalnym otrzymujesz standardowe wyniki; scenariusze szokowe stosujemy głównie do wizualizacji i stress testów.",
+        "Analysis period",
+        ["Normal volatility", "COVID_19_Shock", "Global_Financial_Crisis"],
+        help="In normal mode you get standard results; shock scenarios are used mainly for visualization and stress tests.",
     )
 
-    if risk_subpage == "Kalkulator":
-        if st.button("Wykonaj analizę portfela", type="primary"):
+    if risk_subpage == "Calculator":
+        if st.button("Run portfolio analysis", type="primary"):
             if len(st.session_state.selected_tickers) < 2:
-                st.warning("Wybierz co najmniej 2 spółki.")
+                st.warning("Please select at least 2 companies.")
             else:
-                with st.status("Przetwarzanie danych...", expanded=True) as status:
-                    st.write("Ładowanie danych i pamięci podręcznej...")
+                with st.status("Processing data...", expanded=True) as status:
+                    st.write("Loading data and cache...")
                     try:
-                        stress_param = None if period_mode == "Normalna zmienność" else period_mode
+                        stress_param = None if period_mode == "Normal volatility" else period_mode
                         data = _fetch_risk_api(
                             tickers=st.session_state.selected_tickers,
                             mc_paths=mc_paths,
@@ -311,12 +311,12 @@ elif page == "Kalkulator Ryzyka":
                         backtest = data.get("backtest", {})
                         analyzed_str = ", ".join(st.session_state.selected_tickers)
 
-                        st.write("Korekta zmienności modelem LSTM...")
-                        st.write(f"Generowanie {mc_paths:,} ścieżek Monte Carlo w C++...")
-                        status.update(label="Analiza zakończona", state="complete", expanded=False)
-                        st.success("Obliczenia zakończone sukcesem!")
+                        st.write("Adjusting volatility with LSTM model...")
+                        st.write(f"Generating {mc_paths:,} Monte Carlo paths in C++...")
+                        status.update(label="Analysis complete", state="complete", expanded=False)
+                        st.success("Calculations completed successfully!")
 
-                        st.markdown("### Szczegółowy Raport Ryzyka")
+                        st.markdown("### Detailed Risk Report")
                         st.markdown(
                             f"""<div style=\"color: #94a3b8; font-size: 14px; margin-bottom: 20px;\">\
                             Analyzed Assets: <span style=\"color: black; font-weight: bold;\">{analyzed_str}</span> &nbsp;|&nbsp; \
@@ -330,53 +330,53 @@ elif page == "Kalkulator Ryzyka":
                         v_vol = risk.get("volatility", "N/A")
                         c_box, c_desc = st.columns([1, 2.5])
                         with c_box:
-                            st.markdown(f"<div class='result-box'><div class='metric-label'>Roczna zmienność (Volatility)</div><div class='metric-value'>{v_vol}</div></div>", unsafe_allow_html=True)
+                            st.markdown(f"<div class='result-box'><div class='metric-label'>Annual Volatility</div><div class='metric-value'>{v_vol}</div></div>", unsafe_allow_html=True)
                         with c_desc:
-                            st.markdown("**Co to znaczy?** Miara amplitudy zmian cen rok do roku.<br>**Jak to wpływa na portfel?** Im wyższa, tym większa niepewność.<br>" f"**Twoja ocena:** {get_eval_html(v_vol, 15, 25)}", unsafe_allow_html=True)
+                            st.markdown("**What does this mean?** A measure of the amplitude of price changes year over year.<br>**How does it affect the portfolio?** The higher it is, the greater the uncertainty.<br>" f"**Your rating:** {get_eval_html(v_vol, 15, 25)}", unsafe_allow_html=True)
 
                         v_pvar = risk.get("parametric", {}).get("var", "N/A")
                         c_box, c_desc = st.columns([1, 2.5])
                         with c_box:
-                            st.markdown(f"<div class='result-box'><div class='metric-label'>Parametryczny VaR (95%)</div><div class='metric-value' style='color:#d73a49;'>{v_pvar}</div></div>", unsafe_allow_html=True)
+                            st.markdown(f"<div class='result-box'><div class='metric-label'>Parametric VaR (95%)</div><div class='metric-value' style='color:#d73a49;'>{v_pvar}</div></div>", unsafe_allow_html=True)
                         with c_desc:
-                            st.markdown("**Co to znaczy?** Maksymalna oczekiwana strata dla poziomu ufności 95%.<br>" f"**Twoja ocena:** {get_eval_html(v_pvar, 4, 8)}", unsafe_allow_html=True)
+                            st.markdown("**What does this mean?** Maximum expected loss at the 95% confidence level.<br>" f"**Your rating:** {get_eval_html(v_pvar, 4, 8)}", unsafe_allow_html=True)
 
                         v_hvar = risk.get("historical", {}).get("var", "N/A")
                         c_box, c_desc = st.columns([1, 2.5])
                         with c_box:
-                            st.markdown(f"<div class='result-box'><div class='metric-label'>Historyczny VaR (95%)</div><div class='metric-value' style='color:#d73a49;'>{v_hvar}</div></div>", unsafe_allow_html=True)
+                            st.markdown(f"<div class='result-box'><div class='metric-label'>Historical VaR (95%)</div><div class='metric-value' style='color:#d73a49;'>{v_hvar}</div></div>", unsafe_allow_html=True)
                         with c_desc:
-                            st.markdown("**Co to znaczy?** Ryzyko wynikające z realnych historycznych danych.<br>" f"**Twoja ocena:** {get_eval_html(v_hvar, 4, 8)}", unsafe_allow_html=True)
+                            st.markdown("**What does this mean?** Risk derived from real historical data.<br>" f"**Your rating:** {get_eval_html(v_hvar, 4, 8)}", unsafe_allow_html=True)
 
                         v_cvar = risk.get("historical", {}).get("es", "N/A")
                         c_box, c_desc = st.columns([1, 2.5])
                         with c_box:
-                            st.markdown(f"<div class='result-box'><div class='metric-label'>Oczekiwana strata (CVaR)</div><div class='metric-value' style='color:#cb2431;'>{v_cvar}</div></div>", unsafe_allow_html=True)
+                            st.markdown(f"<div class='result-box'><div class='metric-label'>Expected Shortfall (CVaR)</div><div class='metric-value' style='color:#cb2431;'>{v_cvar}</div></div>", unsafe_allow_html=True)
                         with c_desc:
-                            st.markdown("**Co to znaczy?** Średnia strata po przekroczeniu progu VaR.<br>" f"**Twoja ocena:** {get_eval_html(v_cvar, 6, 12)}", unsafe_allow_html=True)
+                            st.markdown("**What does this mean?** Average loss beyond the VaR threshold.<br>" f"**Your rating:** {get_eval_html(v_cvar, 6, 12)}", unsafe_allow_html=True)
 
                         v_mcvar = risk.get("monte_carlo", {}).get("var", "N/A")
                         c_box, c_desc = st.columns([1, 2.5])
                         with c_box:
                             st.markdown(f"<div class='result-box'><div class='metric-label'>Monte Carlo VaR</div><div class='metric-value' style='color:#d73a49;'>{v_mcvar}</div></div>", unsafe_allow_html=True)
                         with c_desc:
-                            st.markdown("**Co to znaczy?** Potencjał straty z wielokrotnych symulacji scenariuszy rynkowych.<br>" f"**Twoja ocena:** {get_eval_html(v_mcvar, 4, 8)}", unsafe_allow_html=True)
+                            st.markdown("**What does this mean?** Loss potential from multiple simulations of market scenarios.<br>" f"**Your rating:** {get_eval_html(v_mcvar, 4, 8)}", unsafe_allow_html=True)
 
                         v_status = backtest.get("status", "N/A")
                         v_viol = backtest.get("violations", 0)
                         status_color = "#28a745" if "PASS" in str(v_status).upper() else "#d73a49"
                         c_box, c_desc = st.columns([1, 2.5])
                         with c_box:
-                            st.markdown(f"<div class='result-box'><div class='metric-label'>Wiarygodność (Test Kupca)</div><div class='metric-value' style='color:{status_color}; font-size:18px;'>{v_status}</div><div style='font-size:12px; color:#586069;'>Pomyłki: {v_viol}</div></div>", unsafe_allow_html=True)
+                            st.markdown(f"<div class='result-box'><div class='metric-label'>Reliability (Kupiec Test)</div><div class='metric-value' style='color:{status_color}; font-size:18px;'>{v_status}</div><div style='font-size:12px; color:#586069;'>Violations: {v_viol}</div></div>", unsafe_allow_html=True)
                         with c_desc:
-                            st.markdown("**Co to znaczy?** Kontrola jakości modelu VaR na danych historycznych.")
+                            st.markdown("**What does this mean?** Quality control of the VaR model on historical data.")
                     except Exception as e:
-                        status.update(label="Błąd analizy", state="error")
-                        st.error(f"Analiza zakończona błędem: {e}")
+                        status.update(label="Analysis error", state="error")
+                        st.error(f"Analysis ended with an error: {e}")
 
     else:
-        st.markdown("### Wizualizacja Monte Carlo")
-        stress_scenario = period_mode if period_mode != "Normalna zmienność" else "COVID_19_Shock"
+        st.markdown("### Monte Carlo Visualization")
+        stress_scenario = period_mode if period_mode != "Normal volatility" else "COVID_19_Shock"
 
         b_col1, b_col2, b_col3 = st.columns(3)
         with b_col1:
@@ -386,8 +386,8 @@ elif page == "Kalkulator Ryzyka":
         with b_col3:
             bench_runs = st.number_input("Benchmark runs", min_value=1, max_value=10, value=3, step=1)
 
-        if st.button("Uruchom benchmark OpenMP", type="secondary"):
-            with st.spinner("Mierzę czasy OpenMP vs NumPy..."):
+        if st.button("Run OpenMP benchmark", type="secondary"):
+            with st.spinner("Measuring OpenMP vs NumPy times..."):
                 try:
                     b_res = requests.get(
                         "http://127.0.0.1:8000/v1/benchmark/openmp",
@@ -399,7 +399,7 @@ elif page == "Kalkulator Ryzyka":
                 except Exception as e:
                     st.error(f"Benchmark failed: {e}")
 
-        if st.button("Generuj wizualizacje quant", type="primary"):
+        if st.button("Generate quant visualizations", type="primary"):
             try:
                 data = _fetch_risk_api(
                     tickers=st.session_state.selected_tickers,
@@ -415,9 +415,9 @@ elif page == "Kalkulator Ryzyka":
         if "last_benchmark" in st.session_state:
             b = st.session_state["last_benchmark"]
             df_bench = pd.DataFrame(
-                {"Engine": ["OpenMP C++", "NumPy (bez OpenMP)"], "Seconds": [b.get("openmp_avg_s", 0.0), b.get("numpy_avg_s", 0.0)]}
+                {"Engine": ["OpenMP C++", "NumPy (without OpenMP)"], "Seconds": [b.get("openmp_avg_s", 0.0), b.get("numpy_avg_s", 0.0)]}
             )
-            fig_bench = px.bar(df_bench, x="Engine", y="Seconds", color="Engine", title="Porównanie czasu obliczeń Monte Carlo", text="Seconds")
+            fig_bench = px.bar(df_bench, x="Engine", y="Seconds", color="Engine", title="Monte Carlo computation time comparison", text="Seconds")
             fig_bench.update_traces(texttemplate="%{text:.4f}s", textposition="outside")
             fig_bench.update_layout(showlegend=False, height=340)
             st.plotly_chart(fig_bench, use_container_width=True)
@@ -461,22 +461,22 @@ elif page == "Kalkulator Ryzyka":
             log_r = np.cumsum(drift_adj + vol_adj * z, axis=1)
             sim_prices = s0 * np.exp(log_r)
 
-            st.markdown("### Wykres Monte Carlo (fan chart)")
+            st.markdown("### Monte Carlo chart (fan chart)")
             fig_mc = go.Figure()
             x_axis = list(range(1, horizon + 1))
             for i in range(sims_to_draw):
                 fig_mc.add_trace(go.Scatter(x=x_axis, y=sim_prices[i], mode="lines", line=dict(width=1), opacity=0.18, showlegend=False, hoverinfo="skip"))
             fig_mc.add_hline(y=s0, line_dash="dot", line_color="#64748b")
             fig_mc.update_layout(
-                title=f"Symulowane ścieżki cenowe ({sims_to_draw} ścieżek, horyzont {horizon} dni)",
-                xaxis_title="Dzień symulacji",
-                yaxis_title="Wartość portfela (indeks)",
+                title=f"Simulated price paths ({sims_to_draw} paths, {horizon}-day horizon)",
+                xaxis_title="Simulation day",
+                yaxis_title="Portfolio value (index)",
                 height=360,
                 margin=dict(t=50, b=20, l=20, r=20),
             )
             st.plotly_chart(fig_mc, use_container_width=True)
 
-            st.markdown("### Wykres Backtestingu (VaR + naruszenia)")
+            st.markdown("### Backtesting chart (VaR + violations)")
             from plotly.subplots import make_subplots
 
             v_pvar = risk.get("parametric", {}).get("var", "0%")
@@ -486,7 +486,7 @@ elif page == "Kalkulator Ryzyka":
 
             fig_bt = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08)
             fig_bt.add_trace(go.Scatter(x=portfolio_index.index, y=portfolio_index.values, name="Portfolio Index", mode="lines", line=dict(color="#0ea5e9", width=2)), row=1, col=1)
-            fig_bt.add_trace(go.Scatter(x=port_returns_hist.index, y=port_returns_hist.values, name="Dzienne zwroty", mode="lines", line=dict(color="#334155", width=1)), row=2, col=1)
+            fig_bt.add_trace(go.Scatter(x=port_returns_hist.index, y=port_returns_hist.values, name="Daily returns", mode="lines", line=dict(color="#334155", width=1)), row=2, col=1)
             fig_bt.add_hline(y=-var_pct, line_dash="dash", line_color="#dc2626", annotation_text="VaR 95%", annotation_position="top right", row=2, col=1)
             if violations_mask.any():
                 fig_bt.add_trace(
@@ -495,33 +495,33 @@ elif page == "Kalkulator Ryzyka":
                         y=port_returns_hist[violations_mask],
                         mode="markers",
                         marker=dict(color="#dc2626", size=8),
-                        name="Naruszenia VaR",
+                        name="VaR violations",
                     ),
                     row=2,
                     col=1,
                 )
-            fig_bt.update_layout(height=460, margin=dict(t=50, b=20, l=20, r=20), title=f"Backtesting: naruszenia VaR = {int(violations_mask.sum())}")
+            fig_bt.update_layout(height=460, margin=dict(t=50, b=20, l=20, r=20), title=f"Backtesting: VaR violations = {int(violations_mask.sum())}")
             fig_bt.update_yaxes(title_text="Index", row=1, col=1)
-            fig_bt.update_yaxes(title_text="Zwrot dzienny", tickformat=".2%", row=2, col=1)
+            fig_bt.update_yaxes(title_text="Daily return", tickformat=".2%", row=2, col=1)
             st.plotly_chart(fig_bt, use_container_width=True)
 
-            st.markdown("### Interpretacja")
+            st.markdown("### Interpretation")
             st.markdown(
-                "- **Spójność modelu:** jeśli punkty naruszeń są rzadkie i rozproszone, model VaR zwykle zachowuje kalibrację.\n"
-                "- **Ryzyko ogona:** szeroki wachlarz ścieżek MC oznacza wysoką niepewność scenariuszy.\n"
-                "- **Jakość dywersyfikacji:** przy silnym rozjeździe ścieżek rozważ mniejszą koncentrację wag."
+                "- **Model consistency:** if violation points are rare and scattered, the VaR model usually maintains calibration.\n"
+                "- **Tail risk:** a wide fan of MC paths indicates high scenario uncertainty.\n"
+                "- **Diversification quality:** with a strong divergence of paths, consider reducing weight concentration."
             )
 
-elif page == "Wizualizacja":
-    st.title("Wizualizacja")
-    st.markdown("Trzy spójne wykresy w układzie gotowym pod slajdy: porównanie modeli zmienności, heatmapa korelacji i tabela testów statystycznych.")
+elif page == "Visualization":
+    st.title("Visualization")
+    st.markdown("Three consistent charts in a slide-ready layout: volatility model comparison, correlation heatmap and statistical test table.")
     st.markdown("---")
     chart_config = {"displayModeBar": False, "responsive": True}
 
     col_s1, col_s2 = st.columns([2, 1])
     with col_s1:
         viz_tickers = st.multiselect(
-            "Aktywa do wizualizacji (min. 2):",
+            "Assets to visualize (min. 2):",
             options=ALL_TICKERS,
             default=st.session_state.selected_tickers,
             max_selections=10,
@@ -529,18 +529,18 @@ elif page == "Wizualizacja":
         )
     with col_s2:
         viz_scenario = st.selectbox(
-            "Scenariusz szoku",
-            ["COVID_19_Shock", "Global_Financial_Crisis", "Normalna zmienność"],
+            "Shock scenario",
+            ["COVID_19_Shock", "Global_Financial_Crisis", "Normal volatility"],
             key="viz_scenario",
         )
 
-    if st.button("Generuj 3 wykresy", type="primary"):
+    if st.button("Generate 3 charts", type="primary"):
         if len(viz_tickers) < 2:
-            st.warning("Wybierz minimum 2 aktywa.")
+            st.warning("Select at least 2 assets.")
         else:
-            with st.status("Generowanie wizualizacji quant...", expanded=True) as status:
+            with st.status("Generating quant visualizations...", expanded=True) as status:
                 try:
-                    scenario_param = None if viz_scenario == "Normalna zmienność" else viz_scenario
+                    scenario_param = None if viz_scenario == "Normal volatility" else viz_scenario
                     api_data = _fetch_risk_api(viz_tickers, mc_paths=500000, mc_days=10, stress_scenario=scenario_param, timeout=180)
                     risk = api_data.get("risk_metrics", {})
                     backtest = api_data.get("backtest", {})
@@ -811,7 +811,7 @@ elif page == "Wizualizacja":
 
                     badge_pass = "PASS" if kup_verdict == "PASS" and chr_verdict == "PASS" else "MIXED"
                     try:
-                        with st.spinner("Przygotowuję wykresy i eksport JPG..."):
+                        with st.spinner("Preparing charts and JPG export..."):
                             img_1 = _to_jpg_with_retry(fig_1, export_w, export_h)
                             img_2 = _to_jpg_with_retry(fig_2, export_w, export_h)
                             fig_3_export = go.Figure(fig_3)
@@ -846,11 +846,11 @@ elif page == "Wizualizacja":
                         }
                     except Exception as export_err:
                         st.session_state.viz_ready = None
-                        raise RuntimeError(f"Eksport JPG nie powiódł się: {export_err}") from export_err
+                        raise RuntimeError(f"JPG export failed: {export_err}") from export_err
 
-                    status.update(label="Wizualizacje gotowe", state="complete", expanded=False)
+                    status.update(label="Visualizations ready", state="complete", expanded=False)
                 except Exception as e:
-                    status.update(label="Błąd wizualizacji", state="error")
+                    status.update(label="Visualization error", state="error")
                     st.error(f"Visualization error: {e}")
 
     viz_ready = st.session_state.get("viz_ready")
@@ -866,58 +866,58 @@ elif page == "Wizualizacja":
             f"</div>",
             unsafe_allow_html=True,
         )
-        st.markdown("### Zapis wykresów JPG")
+        st.markdown("### Save charts as JPG")
         c_dl1, c_dl2, c_dl3 = st.columns(3)
         with c_dl1:
             st.download_button(
-                "Pobierz panel 1 (JPG)",
+                "Download panel 1 (JPG)",
                 data=viz_ready["img_1"],
                 file_name="panel_1_monte_carlo.jpg",
                 mime="image/jpeg",
             )
         with c_dl2:
             st.download_button(
-                "Pobierz panel 2 (JPG)",
+                "Download panel 2 (JPG)",
                 data=viz_ready["img_2"],
                 file_name="panel_2_heatmap.jpg",
                 mime="image/jpeg",
             )
         with c_dl3:
             st.download_button(
-                "Pobierz panel 3 (JPG)",
+                "Download panel 3 (JPG)",
                 data=viz_ready["img_3"],
                 file_name="panel_3_validation.jpg",
                 mime="image/jpeg",
             )
 
-elif page == "Doradca Portfelowy":
-    st.title("Doradca Portfelowy")
-    st.markdown("Wybierz swój profil inwestycyjny. Algorytm na żywo pobierze dane z giełdy i zoptymalizuje wagi dla wybranej grupy aktywów.")
+elif page == "Portfolio Advisor":
+    st.title("Portfolio Advisor")
+    st.markdown("Select your investment profile. The algorithm will fetch live market data and optimize weights for the selected asset group.")
 
-    profile = st.selectbox("Określ swoją tolerancję na ryzyko:",
-                          ["Pozytywny (Niższe ryzyko)", "Zrównoważony (Średnie ryzyko)", "Dynamiczny (Wyższe ryzyko)"])
+    profile = st.selectbox("Define your risk tolerance:",
+                          ["Positive (Lower risk)", "Balanced (Medium risk)", "Dynamic (Higher risk)"])
 
     st.markdown("---")
 
     base_config = {
-        "Pozytywny (Niższe ryzyko)": {
+        "Positive (Lower risk)": {
             "tickers": ["JNJ", "PG", "WMT", "JPM", "V"],
-            "desc": "Portfel o relatywnie spokojnym profilu, nastawiony na ograniczanie wahań.",
-            "method": "Global Minimum Variance (GMV) - optymalizacja Scipy",
+            "desc": "A portfolio with a relatively calm profile, focused on limiting fluctuations.",
+            "method": "Global Minimum Variance (GMV) - Scipy optimization",
             "code_logic": "weights = get_optimal_weights(returns, 'min_vol')",
             "strategy_type": "min_vol"
         },
-        "Zrównoważony (Średnie ryzyko)": {
+        "Balanced (Medium risk)": {
             "tickers": ["AAPL", "MSFT", "GOOGL", "AMZN"],
-            "desc": "Balans między zmiennością a stopą zwrotu oparty o wskaźnik Sharpe'a.",
-            "method": "Maximum Sharpe Ratio (MSR) - optymalizacja Scipy",
+            "desc": "A balance between volatility and return based on the Sharpe ratio.",
+            "method": "Maximum Sharpe Ratio (MSR) - Scipy optimization",
             "code_logic": "weights = get_optimal_weights(returns, 'max_sharpe')",
             "strategy_type": "max_sharpe"
         },
-        "Dynamiczny (Wyższe ryzyko)": {
+        "Dynamic (Higher risk)": {
             "tickers": ["NVDA", "TSLA", "AMD", "META", "NFLX"],
-            "desc": "Profil nastawiony na wyższą dynamikę zmian i większą ekspozycję na wzrost.",
-            "method": "Maximum Return Seeking - optymalizacja Scipy",
+            "desc": "A profile focused on higher price dynamics and greater growth exposure.",
+            "method": "Maximum Return Seeking - Scipy optimization",
             "code_logic": "weights = get_optimal_weights(returns, 'max_return')",
             "strategy_type": "max_return"
         }
@@ -929,7 +929,7 @@ elif page == "Doradca Portfelowy":
 
     current_weights = []
 
-    with st.spinner(f"Pobieram dane dla {', '.join(tickers)} i obliczam optymalne wagi..."):
+    with st.spinner(f"Fetching data for {', '.join(tickers)} and calculating optimal weights..."):
         try:
             data = load_data(tickers)
             if 'Adj Close' in data: prices = data['Adj Close']
@@ -954,38 +954,38 @@ elif page == "Doradca Portfelowy":
             kurt_val = metrics["kurtosis"]
 
         except Exception as e:
-            st.error(f"Błąd podczas obliczeń giełdowych: {e}. Przechodzę na równe wagi awaryjne.")
+            st.error(f"Error during market calculations: {e}. Falling back to equal weights.")
             current_weights = [1/len(tickers)] * len(tickers)
-            returns = pd.DataFrame() # Puste dla uniknięcia błędów dalej
+            returns = pd.DataFrame()
             port_returns = pd.Series([0])
             sortino_ratio, skewness_val, kurt_val = 0.0, 0.0, 0.0
 
     col_text, col_chart = st.columns([1.2, 1])
 
     with col_text:
-        st.subheader(f"Strategia: {profile.split(' (')[0]}")
-        st.markdown(f"**Dlaczego te spółki?**\n{current_setup['desc']}")
-        st.info(f"**Metoda obliczeniowa:** {current_setup['method']}")
-        st.markdown("**Zastosowany silnik:**")
+        st.subheader(f"Strategy: {profile.split(' (')[0]}")
+        st.markdown(f"**Why these companies?**\n{current_setup['desc']}")
+        st.info(f"**Calculation method:** {current_setup['method']}")
+        st.markdown("**Engine used:**")
         st.code(current_setup['code_logic'], language="python")
 
     with col_chart:
         fig_pie = px.pie(names=tickers, values=current_weights,
-                         title="Wyliczona na żywo struktura portfela", hole=0.4,
+                         title="Live-calculated portfolio structure", hole=0.4,
                          color_discrete_sequence=px.colors.sequential.RdBu)
         fig_pie.update_layout(margin=dict(t=40, b=0, l=0, r=0), height=300)
         st.plotly_chart(fig_pie, use_container_width=True)
 
     st.markdown("---")
 
-    st.subheader("Kalkulator wielkości pozycji")
+    st.subheader("Position size calculator")
     c1, c2, c3 = st.columns([1, 1, 2])
     with c1:
-        waluta = st.selectbox("Waluta:", ["PLN", "USD", "EUR"])
+        waluta = st.selectbox("Currency:", ["PLN", "USD", "EUR"])
     with c2:
-        kwota = st.number_input(f"Kwota inwestycji ({waluta}):", min_value=1000, value=10000, step=500)
+        kwota = st.number_input(f"Investment amount ({waluta}):", min_value=1000, value=10000, step=500)
     with c3:
-        st.markdown(f"**Wyliczony podział kapitału dla {kwota} {waluta}:**")
+        st.markdown(f"**Calculated capital allocation for {kwota} {waluta}:**")
         cols = st.columns(len(tickers))
         for i, t in enumerate(tickers):
             pos_val = kwota * current_weights[i]
@@ -993,8 +993,8 @@ elif page == "Doradca Portfelowy":
 
     st.markdown("---")
 
-    st.subheader("Prognoza wzrostu (Symulacja komputerowa)")
-    st.markdown("Potencjalne zachowanie zoptymalizowanego portfela w ciągu najbliższych 252 dni handlowych (1 rok).")
+    st.subheader("Growth forecast (Computer simulation)")
+    st.markdown("Potential behavior of the optimized portfolio over the next 252 trading days (1 year).")
 
     mean_path, worst_path, best_path = simulate_monte_carlo(port_returns)
 
@@ -1003,11 +1003,11 @@ elif page == "Doradca Portfelowy":
     max_drawdown = drawdown.min()
 
     fig_line = go.Figure()
-    fig_line.add_trace(go.Scatter(y=mean_path, mode='lines', name='Scenariusz bazowy', line=dict(color='#0366d6', width=2)))
-    fig_line.add_trace(go.Scatter(y=best_path, mode='lines', name='Optymistycznie (95%)', line=dict(color='#28a745', dash='dot')))
-    fig_line.add_trace(go.Scatter(y=worst_path, mode='lines', name='Pesymistycznie (5%)', line=dict(color='#d73a49', dash='dot')))
+    fig_line.add_trace(go.Scatter(y=mean_path, mode='lines', name='Base scenario', line=dict(color='#0366d6', width=2)))
+    fig_line.add_trace(go.Scatter(y=best_path, mode='lines', name='Optimistic (95%)', line=dict(color='#28a745', dash='dot')))
+    fig_line.add_trace(go.Scatter(y=worst_path, mode='lines', name='Pessimistic (5%)', line=dict(color='#d73a49', dash='dot')))
 
-    fig_line.update_layout(xaxis_title="Dni z rzędu", yaxis_title="Wartość portfela", height=350, margin=dict(t=20))
+    fig_line.update_layout(xaxis_title="Trading days", yaxis_title="Portfolio value", height=350, margin=dict(t=20))
     st.plotly_chart(fig_line, use_container_width=True)
 
     col_m1, col_m2, col_m3 = st.columns(3)
@@ -1055,21 +1055,21 @@ elif page == "Doradca Portfelowy":
 
         st.plotly_chart(fig_vol, use_container_width=True)
 
-elif page == "Pobierz pliki":
-    st.title("Pobieranie plików i zasobów")
-    st.markdown("Wygeneruj raport i **prawdziwe dane historyczne** dla spółek wybranych w Kalkulatorze.")
+elif page == "Download Files":
+    st.title("File and resource downloads")
+    st.markdown("Generate a report and **real historical data** for the companies selected in the Calculator.")
 
     if len(st.session_state.selected_tickers) > 0:
-        st.info(f"Aktualnie do portfela wybrano: **{', '.join(st.session_state.selected_tickers)}**")
+        st.info(f"Currently selected for portfolio: **{', '.join(st.session_state.selected_tickers)}**")
     else:
-        st.info("Brak wybranych spółek.")
+        st.info("No companies selected.")
 
-    st.markdown("### Krok 1: Pobierz surowe dane z giełdy")
-    st.markdown("Kliknij poniżej, aby pobrać faktyczne, codzienne stopy zwrotu z ostatniego roku dla wybranych spółek.")
+    st.markdown("### Step 1: Download raw market data")
+    st.markdown("Click below to download actual daily returns from the past year for the selected companies.")
 
-    if st.button("Pobierz i przygotuj dane z Giełdy", type="primary"):
+    if st.button("Fetch and prepare market data", type="primary"):
         if len(st.session_state.selected_tickers) > 0:
-            with st.spinner("Łączenie z rynkiem finansowym i generowanie arkusza..."):
+            with st.spinner("Connecting to financial markets and generating spreadsheet..."):
                 try:
                     data = yf.download(st.session_state.selected_tickers, period="1y", progress=False)
 
@@ -1078,7 +1078,7 @@ elif page == "Pobierz pliki":
                     elif 'Close' in data:
                         prices = data['Close']
                     else:
-                        raise ValueError("Brak odpowiednich danych cenowych.")
+                        raise ValueError("No suitable price data available.")
 
                     if isinstance(prices, pd.Series):
                         prices = prices.to_frame(name=st.session_state.selected_tickers[0])
@@ -1086,25 +1086,25 @@ elif page == "Pobierz pliki":
                     returns_df = prices.pct_change().dropna()
 
                     if returns_df.empty:
-                        raise ValueError("Zwrócono puste dane.")
+                        raise ValueError("Empty data returned.")
 
                     csv = returns_df.to_csv(index=True).encode('utf-8')
 
-                    st.success("Dane pobrane poprawnie!")
+                    st.success("Data fetched successfully!")
                     st.download_button(
-                        label="📥 Zapisz plik CSV z historią stóp zwrotu",
-                        file_name="prawdziwa_historia_zwrotow.csv",
+                        label="📥 Save CSV file with return history",
+                        file_name="returns_history.csv",
                         mime="text/csv",
                         data=csv
                     )
                 except Exception as e:
-                    st.error(f"Błąd generowania CSV: {e}")
+                    st.error(f"Error generating CSV: {e}")
         else:
-            st.warning("Wybierz akcje w Kalkulatorze Ryzyka!")
+            st.warning("Select stocks in the Risk Calculator first!")
 
     st.markdown("---")
 
-    st.markdown("### Krok 2: Konfiguracja silnika (JSON)")
+    st.markdown("### Step 2: Engine configuration (JSON)")
     if 'last_opt_metrics' in st.session_state:
         real_report = {
             "engine_version": "2.1.0 (Scipy Optimized)",
@@ -1120,20 +1120,20 @@ elif page == "Pobierz pliki":
         }
         json_string = json.dumps(real_report, indent=4)
         st.download_button(
-            label="📥 Pobierz raport bezpieczeństwa (JSON)",
+            label="📥 Download risk report (JSON)",
             file_name="risk_report.json",
             mime="application/json",
             data=json_string
         )
     else:
-        st.info("Przejdź do zakładki 'Doradca Portfelowy', aby wygenerować raport JSON.")
+        st.info("Go to the 'Portfolio Advisor' tab to generate the JSON report.")
 
     st.markdown("---")
 
-    st.markdown("### Krok 3: Wygeneruj Factsheet dla Zarządu (PDF)")
+    st.markdown("### Step 3: Generate Executive Factsheet (PDF)")
     if 'last_opt_metrics' in st.session_state:
-        if st.button("📄 Generuj Raport PDF", type="primary"):
-            with st.spinner("Generowanie dokumentu..."):
+        if st.button("📄 Generate PDF Report", type="primary"):
+            with st.spinner("Generating document..."):
                 try:
                     pdf_path = generate_pdf_factsheet(
                         tickers=list(st.session_state.last_opt_weights.keys()),
@@ -1142,12 +1142,12 @@ elif page == "Pobierz pliki":
                     )
                     with open(pdf_path, "rb") as pdf_file:
                         st.download_button(
-                            label="📥 Pobierz wygenerowany PDF",
+                            label="📥 Download generated PDF",
                             data=pdf_file,
                             file_name="Portfolio_Risk_Factsheet.pdf",
                             mime="application/pdf"
                         )
                 except Exception as e:
-                    st.error(f"Błąd generowania PDF: {e}")
+                    st.error(f"Error generating PDF: {e}")
     else:
-        st.info("Oblicz wagi w 'Doradcy Portfelowym', aby odblokować generowanie PDF.")
+        st.info("Calculate weights in 'Portfolio Advisor' to unlock PDF generation.")
