@@ -36,7 +36,7 @@ def _as_return_series(returns: Union[pd.Series, pd.DataFrame]) -> pd.Series:
     raise TypeError("returns must be a pandas Series or DataFrame")
 
 def _ewma_cov_matrix(returns_df: pd.DataFrame, span: int = 60) -> pd.DataFrame:
-    """EWMA covariance with lambda = 1 - 2/(span+1)."""
+
     if returns_df.empty:
         return returns_df.cov()
 
@@ -61,9 +61,7 @@ def optimize_portfolio_weights(
     max_weight: float = 0.45,
     ewma_span: int = 60,
 ) -> np.ndarray:
-    """
-    Markowitz MPT (SLSQP) with institutional bounds and EWMA covariance.
-    """
+
     num_assets = len(returns_df.columns)
     if num_assets == 0:
         return np.array([])
@@ -140,9 +138,7 @@ def calculate_comprehensive_metrics(
     mc_paths: Optional[int] = None,
     mc_days: Optional[int] = None,
 ) -> Tuple[Dict, float]:
-    """
-    Returns tuple: (metrics_dict_for_api, parametric_var_float_for_backtest).
-    """
+
     r = _as_return_series(returns)
     mu = float(r.mean())
     vol_historical = float(r.std(ddof=1)) if len(r) > 1 else float(abs(mu))
@@ -199,7 +195,6 @@ def calculate_comprehensive_metrics(
     return metrics, var_p
 
 def calculate_portfolio_metrics(weights, returns_df):
-    """Pomocnicza funkcja dla zakładki Doradca + metryki pod PDF factsheet."""
     p_returns = returns_df.dot(weights)
     p_vol = float(p_returns.std(ddof=1) * np.sqrt(252)) if len(p_returns) > 1 else 0.0
     p_ret = float(p_returns.mean() * 252)
