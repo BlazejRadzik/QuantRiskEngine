@@ -1,4 +1,4 @@
-# **QuantRisk Suite** 
+# **QuantRisk** 
 ### **Financial Engine: C++ Core with Python/ML Integration**
 
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
@@ -8,17 +8,17 @@
 QuantRisk is a risk management platform that bridges the gap between **computational efficiency** and **modern machine learning**.
 
 > [!IMPORTANT]
-> **Performance Milestone:** Achieved a **~400x speedup** on core Monte Carlo simulations compared to native Python loops, and **~9x speedup** over vectorized NumPy implementations using custom C++ SIMD kernels.
+> **Performance Milestone:** Achieved a **~400x speedup** on core Monte Carlo simulations compared to Python loops, and **~9x speedup** over vectorized NumPy implementations using custom C++ SIMD kernels.
 
 ---
 
 ## **Core Architecture**
 
-### **1. HPC Monte Carlo Engine (C++)**
+### **1. HPC Monte Carlo (C++)**
 The heart of the system. Written in **C++17** for maximum throughput.
 * **Parallelization:** OpenMP-powered multi-threading across all CPU cores.
 * **Binding:** Zero-copy memory transfer via **Pybind11**.
-* **Vectorization:** Leveraging **SIMD** instructions for Geometric Brownian Motion (GBM) path generation.
+* **Vectorization:** Leveraging **SIMD** instructions for Geometric Brownian Motion path generation.
 
 ### **2. Hybrid Volatility Forecasting (PyTorch + GARCH)**
 A two-stage pipeline for capturing market stress:
@@ -30,7 +30,7 @@ A two-stage pipeline for capturing market stress:
 * **Kupiec’s Proportion of Failures (POF) Test.**
 * **Christoffersen’s Independence Test** (Detecting VaR violations clustering).
 
-## **🖼️ Dashboard & Reporting Showcase**
+## **Dashboard & Reporting Showcase**
 
 | **Hybrid Volatility Analysis** | **Institutional Risk Report (PDF)** |
 | :---: | :---: |
