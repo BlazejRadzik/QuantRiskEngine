@@ -5,7 +5,7 @@ from fpdf import FPDF
 class RiskReportPDF(FPDF):
     def header(self):
         self.set_font("helvetica", "B", 15)
-        self.cell(0, 10, "QuantRisk - Institutional Portfolio Factsheet", border=False, align="C")
+        self.cell(0, 10, "Portfolio Factsheet", border=False, align="C")
         self.ln(15)
 
     def footer(self):
@@ -36,13 +36,6 @@ def generate_pdf_factsheet(tickers, weights, metrics, filepath="risk_report.pdf"
     pdf.cell(0, 8, f"   - Expected Shortfall (CVaR): {cvar_95*100:.2f}%", ln=True)
     pdf.cell(0, 8, f"   - Sortino Ratio: {float(metrics.get('sortino_ratio', 0.0)):.2f}", ln=True)
 
-    pdf.ln(15)
-    pdf.set_font("helvetica", "I", 8)
-    pdf.multi_cell(
-        0,
-        5,
-        "DISCLAIMER: This report is computer-generated using multi-threaded Monte Carlo (OpenMP), "
-        "GARCH-enhanced volatility and LSTM adjustment. It does not constitute financial advice.",
     )
 
     pdf.output(filepath)
