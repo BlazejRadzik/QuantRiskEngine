@@ -11,7 +11,6 @@ class DataIngestor:
         self.tiingo_api_key = "TWOJ_KLUCZ_TIINGO_LUB_NONE"
 
     def _fetch_from_tiingo(self, ticker, start_date):
-        """Metoda pobierania z profesjonalnego API (Przykładowa struktura)."""
         headers = {'Content-Type': 'application/json', 'Authorization': f'Token {self.tiingo_api_key}'}
         url = f"https://api.tiingo.com/tiingo/daily/{ticker}/prices?startDate={start_date}"
         response = requests.get(url, headers=headers, timeout=5)
@@ -24,7 +23,6 @@ class DataIngestor:
         return df['adjClose']
 
     def _fetch_from_yfinance(self, ticker, period="2y"):
-        """Fallback do starego dobrego yfinance."""
         df = yf.download(ticker, period=period, interval="1d", progress=False, auto_adjust=True)
         if df.empty:
             raise ValueError("Empty data from yfinance")
