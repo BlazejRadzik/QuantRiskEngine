@@ -19,10 +19,6 @@ except ImportError:
     _TORCH_AVAILABLE = False
 
 def get_nn_adjusted_volatility(historical_vol, returns_tensor):
-    """
-    Koreguje zmienność historyczną za pomocą sieci LSTM.
-    Bez PyTorch zwraca wyłącznie zmienność historyczną.
-    """
     if not _TORCH_AVAILABLE or returns_tensor is None:
         return float(historical_vol)
     try:
@@ -36,17 +32,12 @@ def get_nn_adjusted_volatility(historical_vol, returns_tensor):
         return float(historical_vol)
 
 def get_optimal_weights(returns_df, strategy="max_sharpe"):
-    """Alias używany przez dashboard (delegacja do risk_metrics)."""
     from core.risk_metrics import optimize_portfolio_weights
 
     return optimize_portfolio_weights(returns_df, strategy=strategy)
 
 def simulate_monte_carlo(port_returns, horizon=252, simulations=2000):
-    """
-    Zwraca trzy ścieżki wartości portfela (średnia, percentyl 5%, percentyl 95%) dla wykresów Streamlit.
-    """
     import numpy as np
-
     from core.monte_carlo import run_monte_carlo_simulation
 
     r = port_returns.dropna()
