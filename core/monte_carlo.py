@@ -2,13 +2,6 @@ import numpy as np
 import pandas as pd
 
 def run_monte_carlo_simulation(s0, mu, sigma, horizon=30, simulations=10000):
-    """
-    performs monte carlo simulation using geometric brownian motion.
-    s0: initial price
-    mu: expected return (drift)
-    sigma: volatility
-    horizon: forecast period in days
-    """
     dt = 1 / 252
 
     stoch_component = np.random.normal(0, 1, (simulations, horizon))
