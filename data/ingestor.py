@@ -8,7 +8,7 @@ class DataIngestor:
     def __init__(self, tickers: list):
         self.tickers = [t.strip().upper() for t in tickers]
         self.db = DBManager()
-        self.tiingo_api_key = "TWOJ_KLUCZ_TIINGO_LUB_NONE"
+        self.tiingo_api_key = "Klucz tingo do api"
 
     def _fetch_from_tiingo(self, ticker, start_date):
         headers = {'Content-Type': 'application/json', 'Authorization': f'Token {self.tiingo_api_key}'}
