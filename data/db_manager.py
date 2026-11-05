@@ -9,7 +9,6 @@ class DBManager:
         self.init_db()
 
     def init_db(self):
-        """Tworzy tabelę, jeśli jeszcze nie istnieje. Klucz główny zapobiega duplikatom."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
@@ -23,7 +22,6 @@ class DBManager:
             conn.commit()
 
     def save_data(self, ticker: str, df: pd.DataFrame):
-        """Zapisuje nowy DataFrame do bazy SQL używając upsert (INSERT OR IGNORE)."""
         if df.empty: return
 
         records = [(ticker, str(index.date()), float(row)) for index, row in df.items()]
@@ -37,7 +35,6 @@ class DBManager:
             conn.commit()
 
     def load_data(self, ticker: str, start_date: str) -> pd.Series:
-        """Ładuje dane z lokalnej bazy SQL i zwraca jako Pandas Series."""
         with sqlite3.connect(self.db_path) as conn:
             query = f"SELECT date, close FROM daily_prices WHERE ticker = '{ticker}' AND date >= '{start_date}' ORDER BY date ASC"
             df = pd.read_sql_query(query, conn, index_col="date", parse_dates=["date"])
