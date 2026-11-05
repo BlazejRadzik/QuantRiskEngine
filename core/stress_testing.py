@@ -1,13 +1,10 @@
 import pandas as pd
 from typing import Dict, Union
 
-def apply_historical_scenario(portfolio_returns: pd.Series, scenario: str = "COVID_19_Shock") -> Dict[str, Union[str, float]]:
-    """
-    Symuluje zachowanie portfela w ekstremalnych warunkach rynkowych.
-    Wymaga stóp zwrotu portfela indeksowanych datami (DatetimeIndex).
-    """
+def apply_historical_scenario(portfolio_returns: pd.Series, scenario: str = "COVID_19") -> Dict[str, Union[str, float]]:
+
     scenarios = {
-        "COVID_19_Shock": {"start": "2020-02-20", "end": "2020-03-23"},
+        "COVID_19": {"start": "2020-02-20", "end": "2020-03-23"},
         "Global_Financial_Crisis": {"start": "2008-09-01", "end": "2009-03-01"},
     }
 
@@ -28,7 +25,7 @@ def apply_historical_scenario(portfolio_returns: pd.Series, scenario: str = "COV
         max_drawdown = drawdowns.min()
 
     except (KeyError, TypeError):
-        max_drawdown = -0.35 # Przykładowy szok -35%
+        max_drawdown = -0.35 
 
     status = "DANGER" if max_drawdown < -0.20 else "SAFE"
 
