@@ -45,7 +45,6 @@ A two-stage pipeline for capturing market stress:
 ```python
 from quantrisk import MonteCarloEngine, HybridVol
 
-# Generate 2 million paths in milliseconds
 engine = MonteCarloEngine(paths=2000000, steps=252)
 results = engine.run_simulation(initial_price=100.0, vol=0.2, drift=0.05)
 
