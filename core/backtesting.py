@@ -4,9 +4,7 @@ from scipy.stats import chi2
 from typing import Dict, Union
 
 def run_full_backtest(returns: pd.Series, var_value: float, confidence_level: float = 0.95) -> Dict[str, Union[int, float, str]]:
-    """
-    Przeprowadza walidację modelu ryzyka (Testy Kupca i Christoffersena).
-    """
+
     n = len(returns)
     alpha = 1 - confidence_level
     hits = (returns < -var_value).astype(int)
